@@ -1,0 +1,49 @@
+# Binaries
+stoz
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Database
+*.db
+data/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend
+webui/node_modules/
+webui/dist/
+webui/.vite/
+
+# Logs
+*.log
+
+# Docker
+*.tar
+*.tar.gz
+stoz-image-*.tar
+
+# Test data
+test/
+
+# Claude
+.claude/

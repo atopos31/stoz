@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+.env.example
+*.md
+node_modules
+data
+webui/node_modules
+webui/dist
+.claude
+stoz
+*.log
