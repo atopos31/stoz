@@ -243,7 +243,7 @@ func (c *ZimaOSClient) UploadFile(localPath, remotePath string) error {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	writer.WriteField("path", remotePath)
+	writer.WriteField("path", filepath.Dir(remotePath))
 	writer.WriteField("modTime", fmt.Sprintf("%d", stat.ModTime().Unix()))
 
 	part, err := writer.CreateFormFile("file", filepath.Base(localPath))
