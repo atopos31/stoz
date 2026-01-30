@@ -39,10 +39,10 @@ export const api = {
     return request<{ devices: ZimaOSDevice[]; count: number }>('/discover');
   },
 
-  getFolderDetails: async (path: string) => {
+  getFolderDetails: async (path: string, includeRecycle: boolean = false) => {
     return request('/folder/details', {
       method: 'POST',
-      body: JSON.stringify({ path }),
+      body: JSON.stringify({ path, include_recycle: includeRecycle }),
     });
   },
 

@@ -115,7 +115,7 @@ func (p *WorkerPool) processTask(taskID string) error {
 
 	common.Infof("Successfully logged in to ZimaOS for task %s", taskID)
 
-	fileList, totalSize, err := p.scanFolders(sourceFolders, task.BasePath)
+	fileList, totalSize, err := p.scanFolders(sourceFolders, task.BasePath, options)
 	if err != nil {
 		return p.failTask(task, fmt.Errorf("failed to scan folders: %w", err))
 	}
@@ -252,7 +252,7 @@ type FileInfo struct {
 	Size       int64
 }
 
-func (p *WorkerPool) scanFolders(folders []string, basePath string) ([]FileInfo, int64, error) {
+func (p *WorkerPool) scanFolders(folders []string, basePath string, options service.MigrationOptions) ([]FileInfo, int64, error) {
 	var fileList []FileInfo
 	var totalSize int64
 	var mu sync.Mutex
@@ -268,6 +268,11 @@ func (p *WorkerPool) scanFolders(folders []string, basePath string) ([]FileInfo,
 				// Skip directories starting with @ (e.g., @eaDir - Synology thumbnail system)
 				if strings.HasPrefix(d.Name(), "@") {
 					common.Infof("Skipping system directory: %s", path)
+					return filepath.SkipDir
+				}
+				// Skip #recycle directories if not including recycle bin
+				if !options.IncludeRecycle && d.Name() == "#recycle" {
+					common.Infof("Skipping recycle bin: %s", path)
 					return filepath.SkipDir
 				}
 				return nil

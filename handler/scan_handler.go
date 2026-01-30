@@ -29,7 +29,8 @@ func (h *ScanHandler) Scan(c *gin.Context) {
 }
 
 type GetFolderDetailsRequest struct {
-	Path string `json:"path" binding:"required"`
+	Path           string `json:"path" binding:"required"`
+	IncludeRecycle bool   `json:"include_recycle"`
 }
 
 func (h *ScanHandler) GetFolderDetails(c *gin.Context) {
@@ -39,7 +40,7 @@ func (h *ScanHandler) GetFolderDetails(c *gin.Context) {
 		return
 	}
 
-	details, err := h.scannerService.GetFolderDetails(req.Path)
+	details, err := h.scannerService.GetFolderDetails(req.Path, req.IncludeRecycle)
 	if err != nil {
 		common.Errorf("Failed to get folder details for %s: %v", req.Path, err)
 		models.Error(c, 500, "Failed to get folder details: "+err.Error())

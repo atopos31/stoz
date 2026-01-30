@@ -140,7 +140,7 @@ func (s *ScannerService) scanVolume(volumePath string) ([]models.FolderInfo, err
 	return folders, nil
 }
 
-func (s *ScannerService) GetFolderDetails(folderPath string) (*models.FolderInfo, error) {
+func (s *ScannerService) GetFolderDetails(folderPath string, includeRecycle bool) (*models.FolderInfo, error) {
 	info, err := os.Stat(folderPath)
 	if err != nil {
 		return nil, err
@@ -158,12 +158,22 @@ func (s *ScannerService) GetFolderDetails(folderPath string) (*models.FolderInfo
 			return nil
 		}
 
-		if !d.IsDir() {
-			info, err := d.Info()
-			if err == nil {
-				totalSize += info.Size()
-				fileCount++
+		if d.IsDir() {
+			// Skip system directories starting with @
+			if strings.HasPrefix(d.Name(), "@") {
+				return filepath.SkipDir
 			}
+			// Skip #recycle directories if not including recycle bin
+			if !includeRecycle && d.Name() == "#recycle" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		info, err := d.Info()
+		if err == nil {
+			totalSize += info.Size()
+			fileCount++
 		}
 		return nil
 	})

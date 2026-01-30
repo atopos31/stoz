@@ -59,6 +59,7 @@ export interface MigrationOptions {
   overwrite_existing: boolean;
   skip_errors: boolean;
   preserve_times: boolean;
+  include_recycle: boolean;
 }
 
 export interface ZimaOSDevice {

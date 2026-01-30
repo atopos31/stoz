@@ -28,6 +28,7 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
     overwrite_existing: false,
     skip_errors: true,
     preserve_times: true,
+    include_recycle: false,
   });
 
   const handleDiscoverDevices = async () => {
@@ -264,6 +265,15 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
             <span className="ml-2 text-sm">Preserve file timestamps</span>
+          </label>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={options.include_recycle}
+              onChange={(e) => setOptions({ ...options, include_recycle: e.target.checked })}
+              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+            />
+            <span className="ml-2 text-sm">Include recycle bin (#recycle folders)</span>
           </label>
         </div>
       </div>

@@ -35,6 +35,7 @@ type MigrationOptions struct {
 	OverwriteExisting bool `json:"overwrite_existing"`
 	SkipErrors        bool `json:"skip_errors"`
 	PreserveTimes     bool `json:"preserve_times"`
+	IncludeRecycle    bool `json:"include_recycle"`
 }
 
 var migrationService *MigrationService
