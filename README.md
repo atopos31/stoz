@@ -1,16 +1,22 @@
 # STOZ - Synology To ZimaOS Migration Tool
 
-STOZ is a Docker-based application that simplifies migrating data from Synology NAS to ZimaOS systems.
+[English](README.md) | [中文](README_zh.md)
+
+---
+
+STOZ is a Docker-based application that simplifies migrating data from Synology NAS to ZimaOS systems with built-in file verification.
 
 ## Features
 
 - **Automated Volume Scanning**: Automatically discovers and scans all Synology volumes
 - **Selective Migration**: Choose specific folders to migrate with an intuitive UI
 - **Real-time Progress Tracking**: Monitor migration progress with detailed statistics
+- **File Verification**: Three-layer integrity verification after upload (size + timestamp + MD5)
 - **Pause/Resume Support**: Full control over migration tasks
 - **Error Handling**: Configurable error handling with retry logic
 - **Persistent State**: Tasks survive container restarts
 - **Web UI**: Modern React-based interface for easy operation
+- **Recycle Bin Support**: Optional migration of Synology `#recycle` directories
 
 ## Architecture
 
@@ -44,7 +50,7 @@ docker-compose up -d
 http://localhost:8080
 ```
 
-### Configuration
+## Configuration
 
 Environment variables can be configured in `docker-compose.yml` or a `.env` file (see `.env.example`):
 
@@ -67,6 +73,10 @@ CONCURRENT_FILES=3            # Concurrent file uploads
 CHUNK_SIZE=10485760           # Upload chunk size (10MB)
 MAX_RETRIES=3                 # Max retry attempts for failed uploads
 
+# File verification (NEW)
+ENABLE_VERIFICATION=true      # Enable file verification after upload
+VERIFY_CHUNK_SIZE=1048576     # Verification chunk size (1MB)
+
 # ZimaOS
 ZIMAOS_TIMEOUT=30             # Login timeout in seconds
 ```
@@ -84,15 +94,16 @@ Choose which folders you want to migrate from the discovered volumes.
 ### Step 3: Configure Connection
 
 Enter your ZimaOS connection details:
-- Host (e.g., `http://192.168.1.100:8080`)
+- Host (e.g., `http://192.168.1.100` or `http://zimaos.local`)
 - Username
 - Password
 - Base path on ZimaOS (default: `/media/ZimaOS-HD`)
 
 Configure migration options:
-- Overwrite existing files
-- Skip errors and continue
-- Preserve file timestamps
+- **Overwrite existing files**: Replace files that already exist on ZimaOS
+- **Skip errors and continue**: Continue migration even if some files fail
+- **Preserve file timestamps**: Keep original file modification times
+- **Include recycle bin**: Migrate Synology `#recycle` directories
 
 Test the connection before proceeding.
 
@@ -105,11 +116,30 @@ Watch real-time progress including:
 - Current transfer speed
 - Estimated time remaining (ETA)
 - Failed file count
+- **Verification progress** (when enabled)
 
 Control the migration:
 - **Pause**: Temporarily stop the migration
 - **Resume**: Continue a paused migration
 - **Cancel**: Stop and cancel the migration
+
+## File Verification
+
+After all files are uploaded, STOZ automatically verifies file integrity using a three-layer approach:
+
+1. **Size Check**: Compares file sizes between local and remote
+2. **Timestamp Check**: Verifies modification times match (±1 second tolerance)
+3. **MD5 Hash Check**: Compares MD5 hash of first 1MB of file content
+
+**Benefits**:
+- Ensures data integrity without downloading entire files
+- Minimal bandwidth usage (only 1MB per file)
+- Fast verification even for large files
+- Any verification failure marks the task as failed with detailed error logs
+
+**Configuration**:
+- Set `ENABLE_VERIFICATION=false` to disable verification
+- Adjust `VERIFY_CHUNK_SIZE` to change verification data size (default: 1MB)
 
 ## API Endpoints
 
@@ -221,16 +251,23 @@ stoz/
    - Creates directory structure on ZimaOS
    - Uploads files with chunking and retry logic
    - Updates progress in real-time
-5. Frontend polls status every second
+5. **File Verification Phase** (if enabled):
+   - Iterates through all uploaded files
+   - Retrieves remote file metadata via ZimaOS API
+   - Compares size, timestamp, and MD5 hash
+   - Updates verification progress in real-time
+   - Marks task as failed if any file fails verification
+6. Frontend polls status every second
 
-### Features
+### Key Features
 
 - **Worker Pool**: Fixed number of goroutines process tasks concurrently
 - **Task Persistence**: All tasks stored in SQLite for recovery after restart
 - **Chunked Upload**: Large files uploaded in 10MB chunks
 - **Exponential Backoff**: Failed uploads retry with exponential delay
 - **Progress Tracking**: Real-time progress with speed and ETA calculation
-- **Error Logging**: All errors logged to database for debugging
+- **Error Logging**: All errors logged to database with error type (upload/verify)
+- **Partial Download**: Uses HTTP Range requests for efficient verification
 
 ## Troubleshooting
 
@@ -254,6 +291,13 @@ volumes:
 - Increase `CONCURRENT_FILES` for more parallel uploads
 - Check network bandwidth between Synology and ZimaOS
 - Verify ZimaOS system is not overloaded
+
+### Verification fails
+
+- Check network stability between STOZ and ZimaOS
+- Verify ZimaOS has sufficient storage space
+- Review error logs in the UI for specific file errors
+- Consider disabling verification temporarily with `ENABLE_VERIFICATION=false`
 
 ### Database locked errors
 
