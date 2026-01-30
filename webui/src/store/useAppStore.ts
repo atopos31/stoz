@@ -63,7 +63,7 @@ const initialState = {
     host: '',
     username: '',
     password: '',
-    basePath: '/DATA',
+    basePath: '/media/ZimaOS-HD',
   },
   discoveredDevices: [],
   selectedDevice: null,

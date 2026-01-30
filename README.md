@@ -87,7 +87,7 @@ Enter your ZimaOS connection details:
 - Host (e.g., `http://192.168.1.100:8080`)
 - Username
 - Password
-- Base path on ZimaOS (default: `/DATA`)
+- Base path on ZimaOS (default: `/media/ZimaOS-HD`)
 
 Configure migration options:
 - Overwrite existing files
