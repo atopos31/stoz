@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api/client';
-import type { MigrationOptions } from '../types';
+import type { MigrationOptions, ZimaOSDevice } from '../types';
+import DeviceCard from '../components/DeviceCard';
 
 interface Props {
   selectedFolders: string[];
@@ -18,11 +19,40 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string>('');
 
+  const [discovering, setDiscovering] = useState(false);
+  const [devices, setDevices] = useState<ZimaOSDevice[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<ZimaOSDevice | null>(null);
+  const [discoveryError, setDiscoveryError] = useState<string>('');
+
   const [options, setOptions] = useState<MigrationOptions>({
     overwrite_existing: false,
     skip_errors: true,
     preserve_times: true,
   });
+
+  const handleDiscoverDevices = async () => {
+    setDiscovering(true);
+    setDiscoveryError('');
+    setDevices([]);
+
+    try {
+      const result = await api.discoverDevices();
+      setDevices(result.devices || []);
+      if (result.devices.length === 0) {
+        setDiscoveryError('No ZimaOS devices found on the network');
+      }
+    } catch (err) {
+      setDiscoveryError(err instanceof Error ? err.message : 'Discovery failed');
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  const handleSelectDevice = (device: ZimaOSDevice) => {
+    setSelectedDevice(device);
+    setHost(`http://${device.ip}:${device.port}`);
+    setTestResult(null);
+  };
 
   const handleTestConnection = async () => {
     if (!host || !username || !password) {
@@ -86,16 +116,63 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
         </div>
       </div>
 
+      <div className="mb-6 border-b pb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold">Auto Discover ZimaOS Devices</h3>
+          <button
+            onClick={handleDiscoverDevices}
+            disabled={discovering}
+            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-300 flex items-center gap-2"
+          >
+            {discovering ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Discovering...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Auto Discover
+              </>
+            )}
+          </button>
+        </div>
+
+        {discoveryError && (
+          <div className="text-sm text-yellow-600 bg-yellow-50 px-3 py-2 rounded mb-3">
+            {discoveryError}
+          </div>
+        )}
+
+        {devices.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {devices.map((device) => (
+              <DeviceCard
+                key={`${device.ip}:${device.port}`}
+                device={device}
+                onSelect={handleSelectDevice}
+                selected={selectedDevice?.ip === device.ip && selectedDevice?.port === device.port}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="space-y-4 mb-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            ZimaOS Host (e.g., http://192.168.1.100:8080)
+            ZimaOS Host (e.g., http://192.168.1.100:80)
           </label>
           <input
             type="text"
             value={host}
             onChange={(e) => setHost(e.target.value)}
-            placeholder="http://192.168.1.100:8080"
+            placeholder="http://192.168.1.100:80"
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>

@@ -1,4 +1,4 @@
-import type { ScanResult, TaskStatus, MigrationTask, MigrationOptions } from '../types';
+import type { ScanResult, TaskStatus, MigrationTask, MigrationOptions, ZimaOSDevice } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -33,6 +33,10 @@ export const api = {
 
   scan: async () => {
     return request<ScanResult>('/scan');
+  },
+
+  discoverDevices: async () => {
+    return request<{ devices: ZimaOSDevice[]; count: number }>('/discover');
   },
 
   getFolderDetails: async (path: string) => {

@@ -4,11 +4,11 @@ services:
     image: stoz:latest
     container_name: stoz
     restart: unless-stopped
-    ports:
-      - "8080:8080"
     volumes:
       # Mount root filesystem as read-only to scan Synology volumes
-      - ./test:/host:ro
+      # For testing: use ./test:/host:ro
+      # For production on Synology: use /:/host:ro
+      - /:/host:ro
       # Persistent data storage
       - ./data:/data
     environment:
@@ -38,3 +38,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+    # Use host network for UDP discovery to work across network interfaces
+    # Access the application at http://<host-ip>:8080
+    network_mode: host

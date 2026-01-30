@@ -60,3 +60,16 @@ export interface MigrationOptions {
   skip_errors: boolean;
   preserve_times: boolean;
 }
+
+export interface ZimaOSDevice {
+  device_model: string;
+  device_name: string;
+  hash: string;
+  initialized: boolean;
+  lan_ipv4: string[];
+  os_version: string;
+  port: number;
+  request_ip: string;
+  ip: string;
+  image_url: string;
+}

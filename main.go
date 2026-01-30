@@ -57,12 +57,14 @@ func setupRoutes(router *gin.Engine) {
 	healthHandler := handler.NewHealthHandler()
 	scanHandler := handler.NewScanHandler()
 	migrationHandler := handler.NewMigrationHandler()
+	discoveryHandler := handler.NewDiscoveryHandler()
 
 	api := router.Group("/api/v1")
 	{
 		api.GET("/health", healthHandler.Health)
 		api.GET("/scan", scanHandler.Scan)
 		api.POST("/folder/details", scanHandler.GetFolderDetails)
+		api.GET("/discover", discoveryHandler.Discover)
 		api.POST("/zimaos/test", migrationHandler.TestConnection)
 		api.POST("/migration", migrationHandler.CreateMigration)
 		api.GET("/migration/:taskId", migrationHandler.GetMigrationStatus)
