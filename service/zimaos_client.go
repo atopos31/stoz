@@ -253,6 +253,8 @@ func (c *ZimaOSClient) UploadFile(localPath, remotePath string) error {
 		mw.WriteField("path", filepath.Dir(remotePath))
 		mw.WriteField("modTime", fmt.Sprintf("%d", stat.ModTime().Unix()))
 
+		common.Info("path",filepath.Dir(remotePath),"modTime",fmt.Sprintf("%d", stat.ModTime().Unix()))
+
 		// Create form file part
 		part, err := mw.CreateFormFile("file", filepath.Base(localPath))
 		if err != nil {
