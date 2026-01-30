@@ -240,32 +240,37 @@ func (c *ZimaOSClient) UploadFile(localPath, remotePath string) error {
 		return fmt.Errorf("failed to stat file: %w", err)
 	}
 
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
+	// Use pipe for streaming upload to avoid loading entire file into memory
+	pr, pw := io.Pipe()
+	mw := multipart.NewWriter(pw)
 
-	writer.WriteField("path", filepath.Dir(remotePath))
-	writer.WriteField("modTime", fmt.Sprintf("%d", stat.ModTime().Unix()))
+	// Write multipart data in a goroutine
+	go func() {
+		defer pw.Close() // Must close pw after mw to signal EOF
+		defer mw.Close() // Must close mw first to write ending boundary
 
-	part, err := writer.CreateFormFile("file", filepath.Base(localPath))
-	if err != nil {
-		return fmt.Errorf("failed to create form file: %w", err)
-	}
+		// Write form fields first
+		mw.WriteField("path", filepath.Dir(remotePath))
+		mw.WriteField("modTime", fmt.Sprintf("%d", stat.ModTime().Unix()))
 
-	if _, err := io.Copy(part, file); err != nil {
-		return fmt.Errorf("failed to copy file content: %w", err)
-	}
+		// Create form file part
+		part, err := mw.CreateFormFile("file", filepath.Base(localPath))
+		if err != nil {
+			return
+		}
 
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("failed to close multipart writer: %w", err)
-	}
+		// Stream file content to part
+		io.Copy(part, file)
+	}()
 
+	// Send request - http client will read from pr in streaming fashion
 	url := fmt.Sprintf("%s/v2_1/files/file/uploadV2", c.host)
-	req, err := http.NewRequest("POST", url, body)
+	req, err := http.NewRequest("POST", url, pr)
 	if err != nil {
 		return fmt.Errorf("failed to create upload request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Content-Type", mw.FormDataContentType())
 	req.Header.Set("Authorization", c.token)
 
 	uploadClient := &http.Client{
