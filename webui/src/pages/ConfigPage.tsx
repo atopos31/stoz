@@ -1,44 +1,40 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import type { MigrationOptions, ZimaOSDevice } from '../types';
 import DeviceCard from '../components/DeviceCard';
+import { useAppStore } from '../store/useAppStore';
+import { useToast } from '@/hooks/use-toast';
 
-interface Props {
-  selectedFolders: string[];
-  onNext: (taskId: string) => void;
-  onBack: () => void;
-}
+export default function ConfigPage() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const selectedFolders = useAppStore((state) => state.selectedFolders);
+  const zimaosConfig = useAppStore((state) => state.zimaosConfig);
+  const setZimaosConfig = useAppStore((state) => state.setZimaosConfig);
+  const migrationOptions = useAppStore((state) => state.migrationOptions);
+  const setMigrationOptions = useAppStore((state) => state.setMigrationOptions);
+  const discoveredDevices = useAppStore((state) => state.discoveredDevices);
+  const setDiscoveredDevices = useAppStore((state) => state.setDiscoveredDevices);
+  const selectedDevice = useAppStore((state) => state.selectedDevice);
+  const setSelectedDevice = useAppStore((state) => state.setSelectedDevice);
+  const setCurrentTaskId = useAppStore((state) => state.setCurrentTaskId);
+  const setCurrentStep = useAppStore((state) => state.setCurrentStep);
 
-export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
-  const [host, setHost] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [basePath, setBasePath] = useState('/DATA');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string>('');
-
   const [discovering, setDiscovering] = useState(false);
-  const [devices, setDevices] = useState<ZimaOSDevice[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState<ZimaOSDevice | null>(null);
   const [discoveryError, setDiscoveryError] = useState<string>('');
-
-  const [options, setOptions] = useState<MigrationOptions>({
-    overwrite_existing: false,
-    skip_errors: true,
-    preserve_times: true,
-    include_recycle: false,
-  });
 
   const handleDiscoverDevices = async () => {
     setDiscovering(true);
     setDiscoveryError('');
-    setDevices([]);
+    setDiscoveredDevices([]);
 
     try {
       const result = await api.discoverDevices();
-      setDevices(result.devices || []);
+      setDiscoveredDevices(result.devices || []);
       if (result.devices.length === 0) {
         setDiscoveryError('No ZimaOS devices found on the network');
       }
@@ -49,15 +45,21 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
     }
   };
 
-  const handleSelectDevice = (device: ZimaOSDevice) => {
-    setSelectedDevice(device);
-    setHost(`http://${device.ip}:${device.port}`);
-    setTestResult(null);
+  const handleSelectDevice = (device: typeof selectedDevice) => {
+    if (device) {
+      setSelectedDevice(device);
+      setZimaosConfig({ host: `http://${device.ip}:${device.port}` });
+      setTestResult(null);
+    }
   };
 
   const handleTestConnection = async () => {
-    if (!host || !username || !password) {
-      alert('Please fill in all ZimaOS connection details');
+    if (!zimaosConfig.host || !zimaosConfig.username || !zimaosConfig.password) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please fill in all ZimaOS connection details',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -66,7 +68,7 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
     setError('');
 
     try {
-      await api.testConnection(host, username, password);
+      await api.testConnection(zimaosConfig.host, zimaosConfig.username, zimaosConfig.password);
       setTestResult({ success: true, message: 'Connection successful!' });
     } catch (err) {
       setTestResult({
@@ -80,7 +82,11 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
 
   const handleStartMigration = async () => {
     if (!testResult?.success) {
-      alert('Please test the connection first');
+      toast({
+        title: 'Connection Not Tested',
+        description: 'Please test the connection first',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -90,18 +96,25 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
     try {
       const result = await api.createMigration(
         selectedFolders,
-        host,
-        username,
-        password,
-        basePath,
-        options
+        zimaosConfig.host,
+        zimaosConfig.username,
+        zimaosConfig.password,
+        zimaosConfig.basePath,
+        migrationOptions
       );
-      onNext(result.task_id);
+      setCurrentTaskId(result.task_id);
+      setCurrentStep('migration');
+      navigate(`/workflow/migration/${result.task_id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create migration task');
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleBack = () => {
+    setCurrentStep('select');
+    navigate('/workflow/select');
   };
 
   return (
@@ -150,9 +163,9 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
           </div>
         )}
 
-        {devices.length > 0 && (
+        {discoveredDevices.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {devices.map((device) => (
+            {discoveredDevices.map((device) => (
               <DeviceCard
                 key={`${device.ip}:${device.port}`}
                 device={device}
@@ -171,8 +184,8 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
           </label>
           <input
             type="text"
-            value={host}
-            onChange={(e) => setHost(e.target.value)}
+            value={zimaosConfig.host}
+            onChange={(e) => setZimaosConfig({ host: e.target.value })}
             placeholder="http://192.168.1.100:80"
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -184,8 +197,8 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
           </label>
           <input
             type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            value={zimaosConfig.username}
+            onChange={(e) => setZimaosConfig({ username: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -196,8 +209,8 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
           </label>
           <input
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={zimaosConfig.password}
+            onChange={(e) => setZimaosConfig({ password: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -208,8 +221,8 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
           </label>
           <input
             type="text"
-            value={basePath}
-            onChange={(e) => setBasePath(e.target.value)}
+            value={zimaosConfig.basePath}
+            onChange={(e) => setZimaosConfig({ basePath: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -242,8 +255,8 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
           <label className="flex items-center">
             <input
               type="checkbox"
-              checked={options.overwrite_existing}
-              onChange={(e) => setOptions({ ...options, overwrite_existing: e.target.checked })}
+              checked={migrationOptions.overwrite_existing}
+              onChange={(e) => setMigrationOptions({ overwrite_existing: e.target.checked })}
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
             <span className="ml-2 text-sm">Overwrite existing files</span>
@@ -251,8 +264,8 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
           <label className="flex items-center">
             <input
               type="checkbox"
-              checked={options.skip_errors}
-              onChange={(e) => setOptions({ ...options, skip_errors: e.target.checked })}
+              checked={migrationOptions.skip_errors}
+              onChange={(e) => setMigrationOptions({ skip_errors: e.target.checked })}
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
             <span className="ml-2 text-sm">Skip errors and continue</span>
@@ -260,8 +273,8 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
           <label className="flex items-center">
             <input
               type="checkbox"
-              checked={options.preserve_times}
-              onChange={(e) => setOptions({ ...options, preserve_times: e.target.checked })}
+              checked={migrationOptions.preserve_times}
+              onChange={(e) => setMigrationOptions({ preserve_times: e.target.checked })}
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
             <span className="ml-2 text-sm">Preserve file timestamps</span>
@@ -269,8 +282,8 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
           <label className="flex items-center">
             <input
               type="checkbox"
-              checked={options.include_recycle}
-              onChange={(e) => setOptions({ ...options, include_recycle: e.target.checked })}
+              checked={migrationOptions.include_recycle}
+              onChange={(e) => setMigrationOptions({ include_recycle: e.target.checked })}
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
             <span className="ml-2 text-sm">Include recycle bin (#recycle folders)</span>
@@ -286,7 +299,7 @@ export default function ConfigPage({ selectedFolders, onNext, onBack }: Props) {
 
       <div className="flex justify-between">
         <button
-          onClick={onBack}
+          onClick={handleBack}
           className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
         >
           Back

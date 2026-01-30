@@ -1,22 +1,36 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { api } from '../api/client';
 import type { TaskStatus } from '../types';
+import { useTaskStore } from '../store/useTaskStore';
+import { useAppStore } from '../store/useAppStore';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import TaskProgress from '../components/migration/TaskProgress';
+import TaskStatusBadge from '../components/migration/TaskStatusBadge';
+import { Pause, Play, X, Home } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
-interface Props {
-  taskId: string;
-  onBack: () => void;
-}
-
-export default function MigrationPage({ taskId, onBack }: Props) {
+export default function MigrationPage() {
+  const navigate = useNavigate();
+  const { taskId } = useParams<{ taskId: string }>();
+  const { toast } = useToast();
+  const setActiveTaskStatus = useTaskStore((state) => state.setActiveTaskStatus);
+  const reset = useAppStore((state) => state.reset);
   const [status, setStatus] = useState<TaskStatus | null>(null);
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!taskId) return;
+
     const fetchStatus = async () => {
       try {
         const result = await api.getMigrationStatus(taskId);
         setStatus(result);
+        setActiveTaskStatus(taskId, result);
         setError('');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch status');
@@ -29,33 +43,65 @@ export default function MigrationPage({ taskId, onBack }: Props) {
     const interval = setInterval(fetchStatus, 1000);
 
     return () => clearInterval(interval);
-  }, [taskId]);
+  }, [taskId, setActiveTaskStatus]);
 
   const handlePause = async () => {
+    if (!taskId) return;
     try {
       await api.pauseMigration(taskId);
+      toast({
+        title: 'Migration Paused',
+        description: 'The migration has been paused successfully',
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to pause');
+      toast({
+        title: 'Failed to Pause',
+        description: err instanceof Error ? err.message : 'Failed to pause',
+        variant: 'destructive',
+      });
     }
   };
 
   const handleResume = async () => {
+    if (!taskId) return;
     try {
       await api.resumeMigration(taskId);
+      toast({
+        title: 'Migration Resumed',
+        description: 'The migration has been resumed successfully',
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to resume');
+      toast({
+        title: 'Failed to Resume',
+        description: err instanceof Error ? err.message : 'Failed to resume',
+        variant: 'destructive',
+      });
     }
   };
 
   const handleCancel = async () => {
+    if (!taskId) return;
     if (!confirm('Are you sure you want to cancel this migration?')) {
       return;
     }
     try {
       await api.cancelMigration(taskId);
+      toast({
+        title: 'Migration Cancelled',
+        description: 'The migration has been cancelled',
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to cancel');
+      toast({
+        title: 'Failed to Cancel',
+        description: err instanceof Error ? err.message : 'Failed to cancel',
+        variant: 'destructive',
+      });
     }
+  };
+
+  const handleBackToStart = () => {
+    reset();
+    navigate('/workflow/scan');
   };
 
   const formatBytes = (bytes: number) => {
@@ -76,30 +122,48 @@ export default function MigrationPage({ taskId, onBack }: Props) {
     return `${s}s`;
   };
 
+  if (!taskId) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg mb-4">
+            Invalid task ID
+          </div>
+          <Button variant="outline" onClick={handleBackToStart}>
+            <Home className="mr-2 h-4 w-4" />
+            Back to Start
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading migration status...</p>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-8 w-64" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-64 w-full" />
+        </CardContent>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-        <button
-          onClick={onBack}
-          className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-        >
-          Back to Start
-        </button>
-      </div>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg mb-4">
+            {error}
+          </div>
+          <Button variant="outline" onClick={handleBackToStart}>
+            <Home className="mr-2 h-4 w-4" />
+            Back to Start
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -114,124 +178,90 @@ export default function MigrationPage({ taskId, onBack }: Props) {
   const isRunning = status.status === 'running';
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-2xl font-bold mb-4">Migration Progress</h2>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-6"
+    >
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Migration Progress</CardTitle>
+            <TaskStatusBadge status={status.status} />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <TaskProgress status={status} formatBytes={formatBytes} formatTime={formatTime} />
 
-      <div className="mb-6">
-        <div className="flex justify-between text-sm text-gray-600 mb-2">
-          <span>Status: <span className="font-semibold">{status.status}</span></span>
-          <span>{status.progress.toFixed(1)}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-          <div
-            className={`h-full transition-all duration-300 ${
-              isCompleted ? 'bg-green-600' : isFailed || isCancelled ? 'bg-red-600' : 'bg-blue-600'
-            }`}
-            style={{ width: `${status.progress}%` }}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-gray-50 p-4 rounded">
-          <p className="text-sm text-gray-600">Files</p>
-          <p className="text-xl font-semibold">
-            {status.processed_files} / {status.total_files}
-          </p>
-        </div>
-        <div className="bg-gray-50 p-4 rounded">
-          <p className="text-sm text-gray-600">Data</p>
-          <p className="text-xl font-semibold">
-            {formatBytes(status.transferred_size)} / {formatBytes(status.total_size)}
-          </p>
-        </div>
-        <div className="bg-gray-50 p-4 rounded">
-          <p className="text-sm text-gray-600">Speed</p>
-          <p className="text-xl font-semibold">{formatBytes(status.speed)}/s</p>
-        </div>
-        <div className="bg-gray-50 p-4 rounded">
-          <p className="text-sm text-gray-600">ETA</p>
-          <p className="text-xl font-semibold">{formatTime(status.eta)}</p>
-        </div>
-      </div>
-
-      {status.failed_files > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded mb-4">
-          {status.failed_files} file(s) failed to migrate
-        </div>
-      )}
-
-      {status.current_file && isRunning && (
-        <div className="mb-6">
-          <p className="text-sm text-gray-600 mb-1">Current file:</p>
-          <p className="text-sm font-mono bg-gray-50 p-2 rounded truncate">
-            {status.current_file}
-          </p>
-        </div>
-      )}
-
-      {isCompleted && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4">
-          Migration completed successfully!
-        </div>
-      )}
-
-      {isFailed && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-          Migration failed. Please check the error logs.
-        </div>
-      )}
-
-      {isCancelled && (
-        <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded mb-4">
-          Migration was cancelled.
-        </div>
-      )}
-
-      <div className="flex justify-between">
-        <div className="space-x-2">
-          {isRunning && (
-            <>
-              <button
-                onClick={handlePause}
-                className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-              >
-                Pause
-              </button>
-              <button
-                onClick={handleCancel}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-              >
-                Cancel
-              </button>
-            </>
+          {status.failed_files > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300 px-4 py-3 rounded-lg"
+            >
+              {status.failed_files} file(s) failed to migrate
+            </motion.div>
           )}
-          {isPaused && (
-            <>
-              <button
-                onClick={handleResume}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Resume
-              </button>
-              <button
-                onClick={handleCancel}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-              >
-                Cancel
-              </button>
-            </>
+
+          {isCompleted && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 px-4 py-3 rounded-lg"
+            >
+              Migration completed successfully!
+            </motion.div>
           )}
-        </div>
-        {(isCompleted || isFailed || isCancelled) && (
-          <button
-            onClick={onBack}
-            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Start New Migration
-          </button>
-        )}
-      </div>
-    </div>
+
+          {isFailed && (
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
+              Migration failed. Please check the error logs.
+            </div>
+          )}
+
+          {isCancelled && (
+            <div className="bg-muted border px-4 py-3 rounded-lg">
+              Migration was cancelled.
+            </div>
+          )}
+
+          <div className="flex justify-between">
+            <div className="space-x-2">
+              {isRunning && (
+                <>
+                  <Button variant="outline" onClick={handlePause}>
+                    <Pause className="mr-2 h-4 w-4" />
+                    Pause
+                  </Button>
+                  <Button variant="destructive" onClick={handleCancel}>
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel
+                  </Button>
+                </>
+              )}
+              {isPaused && (
+                <>
+                  <Button onClick={handleResume}>
+                    <Play className="mr-2 h-4 w-4" />
+                    Resume
+                  </Button>
+                  <Button variant="destructive" onClick={handleCancel}>
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel
+                  </Button>
+                </>
+              )}
+            </div>
+            {(isCompleted || isFailed || isCancelled) && (
+              <Button onClick={handleBackToStart}>
+                <Home className="mr-2 h-4 w-4" />
+                Start New Migration
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
