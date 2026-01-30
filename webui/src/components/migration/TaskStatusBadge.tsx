@@ -11,6 +11,8 @@ export default function TaskStatusBadge({ status }: Props) {
         return { label: 'Completed', variant: 'default' as const, className: 'bg-green-600 hover:bg-green-700' }
       case 'running':
         return { label: 'Running', variant: 'default' as const, className: 'bg-blue-600 hover:bg-blue-700' }
+      case 'verifying':
+        return { label: 'Verifying', variant: 'default' as const, className: 'bg-purple-600 hover:bg-purple-700' }
       case 'paused':
         return { label: 'Paused', variant: 'secondary' as const, className: 'bg-yellow-600 hover:bg-yellow-700 text-white' }
       case 'failed':

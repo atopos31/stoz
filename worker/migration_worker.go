@@ -1,10 +1,13 @@
 package worker
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"math"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -226,6 +229,23 @@ func (p *WorkerPool) processTask(taskID string) error {
 		}
 	}
 
+	// === File Verification Phase ===
+	if config.AppConfig.Worker.EnableVerification {
+		common.Info("All files uploaded, starting verification...")
+
+		// Update task status to verifying
+		task.Status = models.StatusVerifying
+		task.Progress = 100 // Upload completed
+		if err := p.migrationSvc.UpdateTask(task); err != nil {
+			common.Errorf("Failed to update task to verifying status: %v", err)
+		}
+
+		// Execute file verification
+		if err := p.verifyFiles(task, fileList, client); err != nil {
+			return p.failTask(task, fmt.Errorf("verification failed: %w", err))
+		}
+	}
+
 	task.Status = models.StatusCompleted
 	task.ProcessedFiles = status.ProcessedFiles
 	task.TransferredSize = status.TransferredSize
@@ -347,13 +367,143 @@ func (p *WorkerPool) failTask(task *models.MigrationTask, err error) error {
 }
 
 func (p *WorkerPool) logError(taskID, filePath string, err error) {
+	p.logErrorWithType(taskID, filePath, err, "upload")
+}
+
+func (p *WorkerPool) logErrorWithType(taskID, filePath string, err error, errorType string) {
 	errorLog := &models.ErrorLog{
-		TaskID:   taskID,
-		FilePath: filePath,
-		ErrorMsg: err.Error(),
-		Retried:  0,
+		TaskID:    taskID,
+		FilePath:  filePath,
+		ErrorMsg:  err.Error(),
+		ErrorType: errorType,
+		Retried:   0,
 	}
 	if err := models.DB.Create(errorLog).Error; err != nil {
 		common.Errorf("Failed to log error: %v", err)
 	}
 }
+
+// verifyFiles verifies all uploaded files for integrity
+func (p *WorkerPool) verifyFiles(task *models.MigrationTask, fileList []FileInfo, client *service.ZimaOSClient) error {
+	totalFiles := len(fileList)
+	verifiedCount := 0
+	failedCount := 0
+
+	for i, file := range fileList {
+		// Check if task was cancelled
+		currentTask, _ := p.migrationSvc.GetTask(task.TaskID)
+		if currentTask.Status == models.StatusCancelled {
+			return fmt.Errorf("task cancelled during verification")
+		}
+
+		// Verify single file
+		if err := p.verifySingleFile(file, client); err != nil {
+			failedCount++
+			p.logErrorWithType(task.TaskID, file.RemotePath, fmt.Errorf("verification failed: %w", err), "verify")
+
+			// Any file verification failure causes task to fail
+			return fmt.Errorf("file verification failed: %s - %w", file.RemotePath, err)
+		}
+
+		verifiedCount++
+
+		// Update verification progress (every 10 files or last file)
+		if i%10 == 0 || i == totalFiles-1 {
+			status := &service.TaskStatus{
+				TaskID:            task.TaskID,
+				Status:            models.StatusVerifying,
+				CurrentFile:       file.RemotePath,
+				ProcessedFiles:    task.ProcessedFiles,
+				TotalFiles:        task.TotalFiles,
+				TransferredSize:   task.TransferredSize,
+				TotalSize:         task.TotalSize,
+				Progress:          100, // Upload already completed
+				VerifyingFiles:    verifiedCount,
+				VerifyFailedFiles: failedCount,
+				UpdatedAt:         time.Now(),
+			}
+			p.migrationSvc.UpdateTaskStatus(task.TaskID, status)
+		}
+
+		common.Infof("Verified file %d/%d: %s", verifiedCount, totalFiles, file.RemotePath)
+	}
+
+	common.Infof("Verification completed: %d files verified", verifiedCount)
+	return nil
+}
+
+// verifySingleFile verifies the integrity of a single file
+func (p *WorkerPool) verifySingleFile(file FileInfo, client *service.ZimaOSClient) error {
+	// 1. Get local file info
+	localStat, err := os.Stat(file.LocalPath)
+	if err != nil {
+		return fmt.Errorf("failed to stat local file: %w", err)
+	}
+
+	// 2. Get remote file metadata
+	remoteMeta, err := client.GetFileInfo(file.RemotePath)
+	if err != nil {
+		return fmt.Errorf("failed to get remote file info: %w", err)
+	}
+
+	// 3. Compare file size
+	if localStat.Size() != remoteMeta.Size {
+		return fmt.Errorf("size mismatch: local=%d, remote=%d", localStat.Size(), remoteMeta.Size)
+	}
+
+	// 4. Compare modification time (allow 1 second tolerance)
+	localModTime := localStat.ModTime().Unix()
+	timeDiff := localModTime - remoteMeta.Modified
+	if timeDiff < -1 || timeDiff > 1 {
+		return fmt.Errorf("modified time mismatch: local=%d, remote=%d", localModTime, remoteMeta.Modified)
+	}
+
+	// 5. Calculate and compare MD5 of first 1MB
+	chunkSize := config.AppConfig.Worker.VerifyChunkSize
+	if localStat.Size() < chunkSize {
+		chunkSize = localStat.Size() // For files smaller than 1MB, use actual size
+	}
+
+	// Calculate local file first 1MB MD5
+	localHash, err := p.calculateFileMD5(file.LocalPath, chunkSize)
+	if err != nil {
+		return fmt.Errorf("failed to calculate local MD5: %w", err)
+	}
+
+	// Download remote file first 1MB and calculate MD5
+	remoteData, err := client.DownloadPartialFile(file.RemotePath, chunkSize)
+	if err != nil {
+		return fmt.Errorf("failed to download remote file partial: %w", err)
+	}
+
+	remoteHash := fmt.Sprintf("%x", md5.Sum(remoteData))
+
+	// 6. Compare MD5
+	if localHash != remoteHash {
+		return fmt.Errorf("MD5 mismatch: local=%s, remote=%s", localHash, remoteHash)
+	}
+
+	return nil
+}
+
+// calculateFileMD5 calculates the MD5 hash of the first N bytes of a file
+func (p *WorkerPool) calculateFileMD5(filePath string, size int64) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hash := md5.New()
+
+	// Only read first 'size' bytes
+	buffer := make([]byte, size)
+	n, err := io.ReadFull(file, buffer)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return "", err
+	}
+
+	hash.Write(buffer[:n])
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+

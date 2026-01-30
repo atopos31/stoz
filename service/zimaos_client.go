@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -49,6 +50,24 @@ type CreateFolderRequest struct {
 type UploadResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
+}
+
+// FileMetadata represents file metadata from ZimaOS
+type FileMetadata struct {
+	Name       string                 `json:"name"`
+	Size       int64                  `json:"size"`
+	Modified   int64                  `json:"modified"` // Unix timestamp
+	IsDir      bool                   `json:"is_dir"`
+	Path       string                 `json:"path"`
+	Extensions map[string]interface{} `json:"extensions"`
+}
+
+// FileListResponse represents the response from listing files
+type FileListResponse struct {
+	Content []FileMetadata `json:"content"`
+	Index   int            `json:"index"`
+	Size    int            `json:"size"`
+	Total   int            `json:"total"`
 }
 
 func NewZimaOSClient(host, username, password string) *ZimaOSClient {
@@ -293,3 +312,112 @@ func (c *ZimaOSClient) UploadFile(localPath, remotePath string) error {
 func (c *ZimaOSClient) GetToken() string {
 	return c.token
 }
+
+// GetFileInfo retrieves metadata for a specific file from ZimaOS
+// It queries the parent directory and finds the target file
+func (c *ZimaOSClient) GetFileInfo(filePath string) (*FileMetadata, error) {
+	if c.token == "" {
+		if err := c.Login(); err != nil {
+			return nil, err
+		}
+	}
+
+	// Get parent directory
+	parentDir := filepath.Dir(filePath)
+	fileName := filepath.Base(filePath)
+
+	// Query directory listing with all required parameters
+	// Use url.QueryEscape to properly encode the path (handles Chinese and special characters)
+	requestURL := fmt.Sprintf("%s/v2_1/files/file?path=%s&index=0&size=10000&sfz=true&sort=name&direction=asc",
+		c.host, url.QueryEscape(parentDir))
+	req, err := http.NewRequest("GET", requestURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", c.token)
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get file list with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var fileList FileListResponse
+	if err := json.Unmarshal(bodyBytes, &fileList); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Find the target file in the list
+	for _, file := range fileList.Content {
+		if file.Name == fileName {
+			return &file, nil
+		}
+	}
+
+	return nil, fmt.Errorf("file not found: %s", filePath)
+}
+
+// DownloadPartialFile downloads a portion of a file from ZimaOS
+// size: number of bytes to download from the beginning (e.g., 1MB = 1048576)
+func (c *ZimaOSClient) DownloadPartialFile(filePath string, size int64) ([]byte, error) {
+	if c.token == "" {
+		if err := c.Login(); err != nil {
+			return nil, err
+		}
+	}
+
+	// Use ZimaOS v3/file download API
+	// token, files, and action are query parameters
+	requestURL := fmt.Sprintf("%s/v3/file?token=%s&files=%s&action=download",
+		c.host, c.token, url.QueryEscape(filePath))
+	req, err := http.NewRequest("GET", requestURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+	// Set Range header to request only the first 'size' bytes
+	req.Header.Set("Range", fmt.Sprintf("bytes=0-%d", size-1))
+
+	downloadClient := &http.Client{
+		Timeout: 60 * time.Second, // Longer timeout for downloads
+	}
+
+	resp, err := downloadClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Accept both 200 (full content) and 206 (partial content) status codes
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("download failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Read the response body (will be limited by Range header if supported)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// If the server doesn't support Range requests, manually limit the data
+	if int64(len(data)) > size {
+		data = data[:size]
+	}
+
+	return data, nil
+}
+

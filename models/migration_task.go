@@ -36,6 +36,7 @@ type ErrorLog struct {
 	TaskID    string    `gorm:"index;not null" json:"task_id"`
 	FilePath  string    `gorm:"not null" json:"file_path"`
 	ErrorMsg  string    `gorm:"type:text;not null" json:"error_msg"`
+	ErrorType string    `gorm:"default:upload" json:"error_type"` // upload/verify
 	Retried   int       `gorm:"default:0" json:"retried"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -53,6 +54,7 @@ func InitDB(dbPath string) error {
 const (
 	StatusPending   = "pending"
 	StatusRunning   = "running"
+	StatusVerifying = "verifying" // New: file verification in progress
 	StatusPaused    = "paused"
 	StatusCompleted = "completed"
 	StatusFailed    = "failed"

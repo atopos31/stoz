@@ -51,6 +51,9 @@ export interface TaskStatus {
   total_size: number;
   progress: number;
   failed_files: number;
+  // Verification progress fields
+  verifying_files: number;
+  verify_failed_files: number;
   started_at: string;
   updated_at: string;
 }

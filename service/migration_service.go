@@ -27,8 +27,11 @@ type TaskStatus struct {
 	TotalSize       int64     `json:"total_size"`
 	Progress        float64   `json:"progress"`
 	FailedFiles     int       `json:"failed_files"`
-	StartedAt       time.Time `json:"started_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	// Verification progress fields
+	VerifyingFiles      int `json:"verifying_files"`       // Number of files verified
+	VerifyFailedFiles   int `json:"verify_failed_files"`   // Number of verification failures
+	StartedAt           time.Time `json:"started_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 type MigrationOptions struct {
