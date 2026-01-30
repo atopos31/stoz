@@ -37,7 +37,7 @@ interface TaskState {
 }
 
 const initialPagination = {
-  page: 1,
+  page: 0,
   pageSize: 20,
   total: 0,
   totalPages: 0,
