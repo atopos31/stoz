@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import TaskStatusBadge from '../components/migration/TaskStatusBadge'
-import { Eye, RefreshCw } from 'lucide-react'
+import TaskCard from '../components/migration/TaskCard'
+import { RefreshCw } from 'lucide-react'
 
 export default function HistoryPage() {
   const navigate = useNavigate()
@@ -48,14 +48,6 @@ export default function HistoryPage() {
     ? tasks.filter((task) => task.status === statusFilter)
     : tasks
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
-  }
-
   const handleViewTask = (taskId: string) => {
     navigate(`/task/${taskId}`)
   }
@@ -80,25 +72,25 @@ export default function HistoryPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="all" className="w-full">
+          <Tabs value={statusFilter || 'all'} onValueChange={(value) => setStatusFilter(value === 'all' ? null : value)} className="w-full">
             <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="all" onClick={() => setStatusFilter(null)}>
+              <TabsTrigger value="all">
                 All
               </TabsTrigger>
-              <TabsTrigger value="running" onClick={() => setStatusFilter('running')}>
+              <TabsTrigger value="running">
                 Running
               </TabsTrigger>
-              <TabsTrigger value="completed" onClick={() => setStatusFilter('completed')}>
+              <TabsTrigger value="completed">
                 Completed
               </TabsTrigger>
-              <TabsTrigger value="failed" onClick={() => setStatusFilter('failed')}>
+              <TabsTrigger value="failed">
                 Failed
               </TabsTrigger>
-              <TabsTrigger value="cancelled" onClick={() => setStatusFilter('cancelled')}>
+              <TabsTrigger value="cancelled">
                 Cancelled
               </TabsTrigger>
             </TabsList>
-            <TabsContent value={statusFilter || 'all'} className="space-y-4 mt-4">
+            <TabsContent value="all" className="space-y-4 mt-4">
               {isLoadingTasks && (
                 <div className="space-y-3">
                   {[...Array(3)].map((_, i) => (
@@ -120,50 +112,12 @@ export default function HistoryPage() {
               )}
 
               {!isLoadingTasks && filteredTasks.map((task, index) => (
-                <motion.div
+                <TaskCard
                   key={task.task_id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                >
-                  <Card className="hover:shadow-md transition-shadow">
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <TaskStatusBadge status={task.status} />
-                            <span className="text-sm text-muted-foreground">
-                              {new Date(task.created_at).toLocaleString()}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Task ID: {task.task_id}
-                          </p>
-                          <div className="grid grid-cols-3 gap-4 text-sm">
-                            <div>
-                              <span className="text-muted-foreground">Files:</span>{' '}
-                              <span className="font-semibold">{task.processed_files}/{task.total_files}</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Data:</span>{' '}
-                              <span className="font-semibold">
-                                {formatBytes(task.transferred_size)}/{formatBytes(task.total_size)}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Progress:</span>{' '}
-                              <span className="font-semibold">{task.progress.toFixed(1)}%</span>
-                            </div>
-                          </div>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={() => handleViewTask(task.task_id)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
+                  task={task}
+                  index={index}
+                  onView={handleViewTask}
+                />
               ))}
 
               {!isLoadingTasks && filteredTasks.length > 0 && pagination.totalPages > 1 && (
@@ -186,6 +140,94 @@ export default function HistoryPage() {
                     Next
                   </Button>
                 </div>
+              )}
+            </TabsContent>
+            <TabsContent value="running" className="space-y-4 mt-4">
+              {isLoadingTasks ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-32 w-full" />
+                  ))}
+                </div>
+              ) : filteredTasks.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No running tasks
+                </div>
+              ) : (
+                filteredTasks.map((task, index) => (
+                  <TaskCard
+                    key={task.task_id}
+                    task={task}
+                    index={index}
+                    onView={handleViewTask}
+                  />
+                ))
+              )}
+            </TabsContent>
+            <TabsContent value="completed" className="space-y-4 mt-4">
+              {isLoadingTasks ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-32 w-full" />
+                  ))}
+                </div>
+              ) : filteredTasks.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No completed tasks
+                </div>
+              ) : (
+                filteredTasks.map((task, index) => (
+                  <TaskCard
+                    key={task.task_id}
+                    task={task}
+                    index={index}
+                    onView={handleViewTask}
+                  />
+                ))
+              )}
+            </TabsContent>
+            <TabsContent value="failed" className="space-y-4 mt-4">
+              {isLoadingTasks ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-32 w-full" />
+                  ))}
+                </div>
+              ) : filteredTasks.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No failed tasks
+                </div>
+              ) : (
+                filteredTasks.map((task, index) => (
+                  <TaskCard
+                    key={task.task_id}
+                    task={task}
+                    index={index}
+                    onView={handleViewTask}
+                  />
+                ))
+              )}
+            </TabsContent>
+            <TabsContent value="cancelled" className="space-y-4 mt-4">
+              {isLoadingTasks ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-32 w-full" />
+                  ))}
+                </div>
+              ) : filteredTasks.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No cancelled tasks
+                </div>
+              ) : (
+                filteredTasks.map((task, index) => (
+                  <TaskCard
+                    key={task.task_id}
+                    task={task}
+                    index={index}
+                    onView={handleViewTask}
+                  />
+                ))
               )}
             </TabsContent>
           </Tabs>

@@ -164,7 +164,7 @@ export default function ConfigPage() {
         )}
 
         {discoveredDevices.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
             {discoveredDevices.map((device) => (
               <DeviceCard
                 key={`${device.ip}:${device.port}`}

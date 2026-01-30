@@ -12,6 +12,7 @@ import TaskProgress from '../components/migration/TaskProgress';
 import TaskStatusBadge from '../components/migration/TaskStatusBadge';
 import { Pause, Play, X, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { formatBytes, formatTime } from '@/lib/format';
 
 export default function MigrationPage() {
   const navigate = useNavigate();
@@ -102,24 +103,6 @@ export default function MigrationPage() {
   const handleBackToStart = () => {
     reset();
     navigate('/workflow/scan');
-  };
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-  };
-
-  const formatTime = (seconds: number) => {
-    if (seconds === 0) return '0s';
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    if (h > 0) return `${h}h ${m}m ${s}s`;
-    if (m > 0) return `${m}m ${s}s`;
-    return `${s}s`;
   };
 
   if (!taskId) {

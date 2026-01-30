@@ -11,34 +11,19 @@ import TaskStatusBadge from '../components/migration/TaskStatusBadge'
 import TaskProgress from '../components/migration/TaskProgress'
 import { ArrowLeft, Pause, Play, X } from 'lucide-react'
 import { useTaskStore } from '../store/useTaskStore'
+import { useToast } from '@/hooks/use-toast'
+import { formatBytes, formatTime } from '@/lib/format'
 
 export default function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
   const getTaskById = useTaskStore((state) => state.getTaskById)
+  const { toast } = useToast()
 
   const [status, setStatus] = useState<TaskStatus | null>(null)
   const [task, setTask] = useState<MigrationTask | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
-  }
-
-  const formatTime = (seconds: number) => {
-    if (seconds === 0) return '0s'
-    const h = Math.floor(seconds / 3600)
-    const m = Math.floor((seconds % 3600) / 60)
-    const s = Math.floor(seconds % 60)
-    if (h > 0) return `${h}h ${m}m ${s}s`
-    if (m > 0) return `${m}m ${s}s`
-    return `${s}s`
-  }
 
   useEffect(() => {
     if (!taskId) return
@@ -82,8 +67,16 @@ export default function TaskDetailPage() {
     if (!taskId) return
     try {
       await api.pauseMigration(taskId)
+      toast({
+        title: 'Migration Paused',
+        description: 'The migration has been paused successfully',
+      })
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to pause')
+      toast({
+        title: 'Failed to Pause',
+        description: err instanceof Error ? err.message : 'Failed to pause',
+        variant: 'destructive',
+      })
     }
   }
 
@@ -91,8 +84,16 @@ export default function TaskDetailPage() {
     if (!taskId) return
     try {
       await api.resumeMigration(taskId)
+      toast({
+        title: 'Migration Resumed',
+        description: 'The migration has been resumed successfully',
+      })
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to resume')
+      toast({
+        title: 'Failed to Resume',
+        description: err instanceof Error ? err.message : 'Failed to resume',
+        variant: 'destructive',
+      })
     }
   }
 
@@ -103,8 +104,16 @@ export default function TaskDetailPage() {
     }
     try {
       await api.cancelMigration(taskId)
+      toast({
+        title: 'Migration Cancelled',
+        description: 'The migration has been cancelled',
+      })
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to cancel')
+      toast({
+        title: 'Failed to Cancel',
+        description: err instanceof Error ? err.message : 'Failed to cancel',
+        variant: 'destructive',
+      })
     }
   }
 

@@ -1,56 +1,73 @@
-import type { ZimaOSDevice } from '../types';
+import type { ZimaOSDevice } from '../types'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Check } from 'lucide-react'
 
 interface Props {
-  device: ZimaOSDevice;
-  onSelect: (device: ZimaOSDevice) => void;
-  selected?: boolean;
+  device: ZimaOSDevice
+  onSelect: (device: ZimaOSDevice) => void
+  selected?: boolean
 }
 
 export default function DeviceCard({ device, onSelect, selected }: Props) {
   return (
-    <div
+    <Card
       onClick={() => onSelect(device)}
       className={`
-        border rounded-lg p-4 cursor-pointer transition-all
+        relative h-48 overflow-hidden cursor-pointer transition-all group
         ${selected
-          ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
-          : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+          ? 'ring-2 ring-primary ring-offset-2'
+          : 'hover:ring-2 hover:ring-primary/50'
         }
       `}
     >
-      <div className="flex items-center space-x-4">
-        <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
-          <img
-            src={device.image_url}
-            alt={device.device_name}
-            className="w-full h-full object-contain"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-semibold text-gray-900 truncate">
-            {device.device_name}
-          </h3>
-          <p className="text-sm text-gray-500">
-            {device.device_model}
-          </p>
-          <p className="text-sm text-gray-600">
-            {device.ip}:{device.port}
-          </p>
-          <p className="text-xs text-gray-400">
-            {device.os_version}
-          </p>
-        </div>
-        {selected && (
-          <div className="flex-shrink-0">
-            <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-          </div>
-        )}
+      {/* Background Image */}
+      <div className="absolute inset-0">
+        <img
+          src={device.image_url}
+          alt={device.device_name}
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23f0f0f0" width="100" height="100"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E'
+          }}
+        />
       </div>
-    </div>
-  );
+
+      {/* Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+
+      {/* Content Overlay */}
+      <div className="relative h-full flex flex-col justify-between p-4">
+        {/* Top Right Badge */}
+        <div className="flex justify-end">
+          {selected && (
+            <Badge className="bg-primary/90 backdrop-blur-sm">
+              <Check className="w-3 h-3 mr-1" />
+              Selected
+            </Badge>
+          )}
+        </div>
+
+        {/* Bottom Info */}
+        <div className="space-y-2">
+          <div>
+            <h3 className="text-lg font-bold text-white drop-shadow-lg truncate">
+              {device.device_name}
+            </h3>
+            <p className="text-sm text-white/90 drop-shadow">
+              {device.device_model}
+            </p>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-white/80 drop-shadow font-mono">
+              {device.ip}:{device.port}
+            </p>
+            <Badge variant="secondary" className="bg-white/20 backdrop-blur-sm text-white border-0">
+              {device.os_version}
+            </Badge>
+          </div>
+        </div>
+      </div>
+    </Card>
+  )
 }
