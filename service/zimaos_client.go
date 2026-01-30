@@ -199,9 +199,9 @@ func (c *ZimaOSClient) CreateFolder(path string) error {
 
 	// Check for plain text error messages
 	if resp.StatusCode == http.StatusConflict ||
-	   (resp.StatusCode >= 400 && (string(bodyBytes) == "" ||
-	   bodyStr == "folder already exists" ||
-	   bodyStr == "directory already exists")) {
+		(resp.StatusCode >= 400 && (string(bodyBytes) == "" ||
+			bodyStr == "folder already exists" ||
+			bodyStr == "directory already exists")) {
 		common.Infof("Folder already exists: %s", path)
 		return nil
 	}
@@ -251,18 +251,14 @@ func (c *ZimaOSClient) UploadFile(localPath, remotePath string) error {
 
 		// Write form fields first
 		mw.WriteField("path", filepath.Dir(remotePath))
-		mw.WriteField("modTime", fmt.Sprintf("%d", stat.ModTime().Unix()))
-
-		common.Info("path",filepath.Dir(remotePath),"modTime",fmt.Sprintf("%d", stat.ModTime().Unix()))
-
 		// Create form file part
 		part, err := mw.CreateFormFile("file", filepath.Base(localPath))
 		if err != nil {
 			return
 		}
-
 		// Stream file content to part
 		io.Copy(part, file)
+		mw.WriteField("modTime", fmt.Sprintf("%s:%d", filepath.Base(localPath), stat.ModTime().Unix()))
 	}()
 
 	// Send request - http client will read from pr in streaming fashion

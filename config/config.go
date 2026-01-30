@@ -27,8 +27,8 @@ type DatabaseConfig struct {
 }
 
 type ScanConfig struct {
-	HostPath  string
-	CacheTTL  time.Duration
+	HostPath string
+	CacheTTL time.Duration
 }
 
 type WorkerConfig struct {

@@ -46,11 +46,11 @@ func (h *MigrationHandler) TestConnection(c *gin.Context) {
 }
 
 type CreateMigrationRequest struct {
-	SourceFolders []string                  `json:"source_folders" binding:"required"`
-	ZimaOSHost    string                    `json:"zimaos_host" binding:"required"`
-	ZimaOSUser    string                    `json:"zimaos_username" binding:"required"`
-	ZimaOSPass    string                    `json:"zimaos_password" binding:"required"`
-	BasePath      string                    `json:"base_path" binding:"required"`
+	SourceFolders []string                 `json:"source_folders" binding:"required"`
+	ZimaOSHost    string                   `json:"zimaos_host" binding:"required"`
+	ZimaOSUser    string                   `json:"zimaos_username" binding:"required"`
+	ZimaOSPass    string                   `json:"zimaos_password" binding:"required"`
+	BasePath      string                   `json:"base_path" binding:"required"`
 	Options       service.MigrationOptions `json:"options"`
 }
 

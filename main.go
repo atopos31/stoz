@@ -44,7 +44,6 @@ func main() {
 	router.Use(middleware.CORS())
 	router.Use(gin.Logger())
 
-	
 	setupRoutes(router)
 
 	common.Infof("Server listening on :%s", config.AppConfig.Server.Port)

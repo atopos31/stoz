@@ -3,11 +3,11 @@ package models
 import "time"
 
 type FolderInfo struct {
-	Path         string      `json:"path"`
-	Name         string      `json:"name"`
-	Size         int64       `json:"size"`
-	FileCount    int         `json:"file_count"`
-	ModifiedTime time.Time   `json:"modified_time"`
+	Path         string       `json:"path"`
+	Name         string       `json:"name"`
+	Size         int64        `json:"size"`
+	FileCount    int          `json:"file_count"`
+	ModifiedTime time.Time    `json:"modified_time"`
 	Children     []FolderInfo `json:"children,omitempty"`
 }
 
