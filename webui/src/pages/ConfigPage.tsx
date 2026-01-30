@@ -1,9 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { api } from '../api/client';
 import DeviceCard from '../components/DeviceCard';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Loader2 } from 'lucide-react';
 
 export default function ConfigPage() {
   const navigate = useNavigate();
@@ -307,11 +316,60 @@ export default function ConfigPage() {
         <button
           onClick={handleStartMigration}
           disabled={!testResult?.success || creating}
-          className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
         >
+          {creating && <Loader2 className="h-4 w-4 animate-spin" />}
           {creating ? 'Creating...' : 'Start Migration'}
         </button>
       </div>
+
+      {/* Creating Migration Dialog */}
+      <Dialog open={creating} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              Preparing Migration
+            </DialogTitle>
+            <DialogDescription>
+              Please wait while we prepare your migration task...
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <motion.div
+              className="space-y-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                  className="h-2 w-2 rounded-full bg-primary"
+                />
+                Scanning selected folders
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.5, delay: 0.2 }}
+                  className="h-2 w-2 rounded-full bg-primary"
+                />
+                Calculating total size
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.5, delay: 0.4 }}
+                  className="h-2 w-2 rounded-full bg-primary"
+                />
+                Creating migration task
+              </div>
+            </motion.div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
