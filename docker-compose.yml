@@ -1,7 +1,6 @@
 services:
   stoz:
-    build: .
-    image: stoz:latest
+    image: icewhaletech/stoz:latest
     container_name: stoz
     restart: unless-stopped
     volumes:
