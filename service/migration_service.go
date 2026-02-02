@@ -163,34 +163,6 @@ func (s *MigrationService) ListTasks(limit, offset int) ([]*models.MigrationTask
 	return tasks, total, nil
 }
 
-func (s *MigrationService) PauseTask(taskID string) error {
-	task, err := s.GetTask(taskID)
-	if err != nil {
-		return err
-	}
-
-	if task.Status != models.StatusRunning {
-		return fmt.Errorf("task is not running")
-	}
-
-	task.Status = models.StatusPaused
-	return s.UpdateTask(task)
-}
-
-func (s *MigrationService) ResumeTask(taskID string) error {
-	task, err := s.GetTask(taskID)
-	if err != nil {
-		return err
-	}
-
-	if task.Status != models.StatusPaused {
-		return fmt.Errorf("task is not paused")
-	}
-
-	task.Status = models.StatusPending
-	return s.UpdateTask(task)
-}
-
 func (s *MigrationService) CancelTask(taskID string) error {
 	task, err := s.GetTask(taskID)
 	if err != nil {

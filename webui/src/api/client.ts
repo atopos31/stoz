@@ -94,18 +94,6 @@ export const api = {
     }>(`/migrations?limit=${limit}&offset=${offset}`);
   },
 
-  pauseMigration: async (taskId: string) => {
-    return request(`/migration/${taskId}/pause`, {
-      method: 'POST',
-    });
-  },
-
-  resumeMigration: async (taskId: string) => {
-    return request(`/migration/${taskId}/resume`, {
-      method: 'POST',
-    });
-  },
-
   cancelMigration: async (taskId: string) => {
     return request(`/migration/${taskId}/cancel`, {
       method: 'POST',

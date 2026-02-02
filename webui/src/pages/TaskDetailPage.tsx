@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { api } from '../api/client'
@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import TaskStatusBadge from '../components/migration/TaskStatusBadge'
 import TaskProgress from '../components/migration/TaskProgress'
-import { ArrowLeft, Pause, Play, X } from 'lucide-react'
+import { ArrowLeft, X } from 'lucide-react'
 import { useTaskStore } from '../store/useTaskStore'
 import { useToast } from '@/hooks/use-toast'
 import { formatBytes, formatTime } from '@/lib/format'
@@ -24,6 +24,7 @@ export default function TaskDetailPage() {
   const [task, setTask] = useState<MigrationTask | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
+  const userCancelledRef = useRef(false) // Track if user clicked cancel
 
   useEffect(() => {
     if (!taskId) return
@@ -38,6 +39,18 @@ export default function TaskDetailPage() {
 
         // Fetch current status
         const statusResult = await api.getMigrationStatus(taskId)
+
+        // If user clicked cancel, keep showing cancelled status until server confirms
+        if (userCancelledRef.current && statusResult.status !== 'cancelled') {
+          // Don't update status, keep showing cancelled
+          return
+        }
+
+        // If server confirms cancellation, clear the flag
+        if (statusResult.status === 'cancelled') {
+          userCancelledRef.current = false
+        }
+
         setStatus(statusResult)
         setError('')
       } catch (err) {
@@ -54,6 +67,17 @@ export default function TaskDetailPage() {
       if (!taskId) return
       try {
         const statusResult = await api.getMigrationStatus(taskId)
+
+        // If user clicked cancel, keep showing cancelled status until server confirms
+        if (userCancelledRef.current && statusResult.status !== 'cancelled') {
+          return
+        }
+
+        // If server confirms cancellation, clear the flag
+        if (statusResult.status === 'cancelled') {
+          userCancelledRef.current = false
+        }
+
         setStatus(statusResult)
       } catch (err) {
         // Ignore polling errors
@@ -63,52 +87,37 @@ export default function TaskDetailPage() {
     return () => clearInterval(interval)
   }, [taskId])
 
-  const handlePause = async () => {
-    if (!taskId) return
-    try {
-      await api.pauseMigration(taskId)
-      toast({
-        title: 'Migration Paused',
-        description: 'The migration has been paused successfully',
-      })
-    } catch (err) {
-      toast({
-        title: 'Failed to Pause',
-        description: err instanceof Error ? err.message : 'Failed to pause',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  const handleResume = async () => {
-    if (!taskId) return
-    try {
-      await api.resumeMigration(taskId)
-      toast({
-        title: 'Migration Resumed',
-        description: 'The migration has been resumed successfully',
-      })
-    } catch (err) {
-      toast({
-        title: 'Failed to Resume',
-        description: err instanceof Error ? err.message : 'Failed to resume',
-        variant: 'destructive',
-      })
-    }
-  }
-
   const handleCancel = async () => {
     if (!taskId) return
     if (!confirm('Are you sure you want to cancel this migration?')) {
       return
     }
     try {
+      // Mark that user clicked cancel
+      userCancelledRef.current = true
+
+      // Immediately update local status to prevent further cancel clicks
+      if (status) {
+        setStatus({
+          ...status,
+          status: 'cancelled',
+        })
+      }
+
       await api.cancelMigration(taskId)
       toast({
         title: 'Migration Cancelled',
-        description: 'The migration has been cancelled',
+        description: 'The migration has been cancelled by user',
       })
     } catch (err) {
+      // Revert status and flag on error
+      userCancelledRef.current = false
+      if (status) {
+        setStatus({
+          ...status,
+          status: 'running',
+        })
+      }
       toast({
         title: 'Failed to Cancel',
         description: err instanceof Error ? err.message : 'Failed to cancel',
@@ -150,8 +159,7 @@ export default function TaskDetailPage() {
     return null
   }
 
-  const isRunning = status.status === 'running'
-  const isPaused = status.status === 'paused'
+  const isRunning = status.status === 'running' || status.status === 'verifying'
   const isCompleted = status.status === 'completed'
   const isFailed = status.status === 'failed'
   const isCancelled = status.status === 'cancelled'
@@ -237,8 +245,11 @@ export default function TaskDetailPage() {
           {isCancelled && (
             <>
               <Separator />
-              <div className="bg-muted border px-4 py-3 rounded-lg">
-                Migration was cancelled.
+              <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300 px-4 py-3 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <X className="h-4 w-4" />
+                  <span>Migration was cancelled by user</span>
+                </div>
               </div>
             </>
           )}
@@ -251,28 +262,10 @@ export default function TaskDetailPage() {
 
             <div className="space-x-2">
               {isRunning && (
-                <>
-                  <Button variant="outline" onClick={handlePause}>
-                    <Pause className="mr-2 h-4 w-4" />
-                    Pause
-                  </Button>
-                  <Button variant="destructive" onClick={handleCancel}>
-                    <X className="mr-2 h-4 w-4" />
-                    Cancel
-                  </Button>
-                </>
-              )}
-              {isPaused && (
-                <>
-                  <Button onClick={handleResume}>
-                    <Play className="mr-2 h-4 w-4" />
-                    Resume
-                  </Button>
-                  <Button variant="destructive" onClick={handleCancel}>
-                    <X className="mr-2 h-4 w-4" />
-                    Cancel
-                  </Button>
-                </>
+                <Button variant="destructive" onClick={handleCancel}>
+                  <X className="mr-2 h-4 w-4" />
+                  Cancel
+                </Button>
               )}
             </div>
           </div>

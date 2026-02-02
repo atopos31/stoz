@@ -69,8 +69,6 @@ func setupRoutes(router *gin.Engine) {
 		api.POST("/migration", migrationHandler.CreateMigration)
 		api.GET("/migration/:taskId", migrationHandler.GetMigrationStatus)
 		api.GET("/migrations", migrationHandler.ListMigrations)
-		api.POST("/migration/:taskId/pause", migrationHandler.PauseMigration)
-		api.POST("/migration/:taskId/resume", migrationHandler.ResumeMigration)
 		api.POST("/migration/:taskId/cancel", migrationHandler.CancelMigration)
 	}
 

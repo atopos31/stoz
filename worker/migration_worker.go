@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -85,8 +86,15 @@ func (p *WorkerPool) processTask(taskID string) error {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
 
+	// CRITICAL: Check cancelled status BEFORE setting to running
 	if task.Status == models.StatusCancelled {
 		common.Infof("Task %s is cancelled, skipping", taskID)
+		return nil
+	}
+
+	// Only transition to running if task is pending
+	if task.Status != models.StatusPending {
+		common.Warnf("Task %s has unexpected status %s, skipping", taskID, task.Status)
 		return nil
 	}
 
@@ -96,6 +104,38 @@ func (p *WorkerPool) processTask(taskID string) error {
 	if err := p.migrationSvc.UpdateTask(task); err != nil {
 		return fmt.Errorf("failed to update task status: %w", err)
 	}
+
+	// Create cancelable context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start background goroutine to monitor cancellation status
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				// Check task status every second
+				currentTask, err := p.migrationSvc.GetTask(taskID)
+				if err != nil {
+					common.Errorf("Failed to check task status: %v", err)
+					cancel()
+					return
+				}
+
+				// If task is cancelled, immediately cancel context
+				if currentTask.Status == models.StatusCancelled {
+					common.Infof("Task %s cancellation detected, cancelling context", taskID)
+					cancel()
+					return
+				}
+			}
+		}
+	}()
 
 	var options service.MigrationOptions
 	if err := json.Unmarshal([]byte(task.Options), &options); err != nil {
@@ -150,6 +190,14 @@ func (p *WorkerPool) processTask(taskID string) error {
 	var lastTransferredSize int64
 
 	for i, fileInfo := range fileList {
+		// Check if context is cancelled before processing each file
+		select {
+		case <-ctx.Done():
+			common.Infof("Task %s cancelled by context", taskID)
+			return nil
+		default:
+		}
+
 		task, err := p.migrationSvc.GetTask(taskID)
 		if err != nil {
 			common.Errorf("Failed to get task status: %v", err)
@@ -159,22 +207,6 @@ func (p *WorkerPool) processTask(taskID string) error {
 		if task.Status == models.StatusCancelled {
 			common.Infof("Task %s cancelled", taskID)
 			return nil
-		}
-
-		if task.Status == models.StatusPaused {
-			common.Infof("Task %s paused, waiting for resume", taskID)
-			for {
-				time.Sleep(5 * time.Second)
-				task, err := p.migrationSvc.GetTask(taskID)
-				if err != nil || task.Status == models.StatusCancelled {
-					return nil
-				}
-				if task.Status == models.StatusPending {
-					task.Status = models.StatusRunning
-					p.migrationSvc.UpdateTask(task)
-					break
-				}
-			}
 		}
 
 		status.CurrentFile = fileInfo.LocalPath
@@ -190,7 +222,7 @@ func (p *WorkerPool) processTask(taskID string) error {
 			continue
 		}
 
-		if err := p.uploadFileWithRetry(client, fileInfo.LocalPath, fileInfo.RemotePath, config.AppConfig.Worker.MaxRetries); err != nil {
+		if err := p.uploadFileWithRetry(ctx, client, fileInfo.LocalPath, fileInfo.RemotePath, config.AppConfig.Worker.MaxRetries); err != nil {
 			common.Errorf("Failed to upload file %s: %v", fileInfo.LocalPath, err)
 			if !options.SkipErrors {
 				return p.failTask(task, fmt.Errorf("failed to upload file: %w", err))
@@ -330,12 +362,24 @@ func (p *WorkerPool) scanFolders(folders []string, basePath string, options serv
 	return fileList, totalSize, nil
 }
 
-func (p *WorkerPool) uploadFileWithRetry(client *service.ZimaOSClient, localPath, remotePath string, maxRetries int) error {
+func (p *WorkerPool) uploadFileWithRetry(ctx context.Context, client *service.ZimaOSClient, localPath, remotePath string, maxRetries int) error {
 	var err error
 	for i := 0; i < maxRetries; i++ {
-		err = client.UploadFile(localPath, remotePath)
+		// Check if context is cancelled before retry
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("upload cancelled: %w", ctx.Err())
+		default:
+		}
+
+		err = client.UploadFile(ctx, localPath, remotePath)
 		if err == nil {
 			return nil
+		}
+
+		// If it's a cancellation error, return immediately without retry
+		if err == context.Canceled || err == context.DeadlineExceeded {
+			return err
 		}
 
 		if i < maxRetries-1 {

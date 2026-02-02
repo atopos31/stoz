@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +15,22 @@ import (
 
 	"github.com/atopos31/stoz/common"
 )
+
+// cancelableReader wraps io.Reader and supports cancellation via context
+type cancelableReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r *cancelableReader) Read(p []byte) (n int, err error) {
+	// Check if context is cancelled before each read
+	select {
+	case <-r.ctx.Done():
+		return 0, r.ctx.Err()
+	default:
+	}
+	return r.reader.Read(p)
+}
 
 type ZimaOSClient struct {
 	host     string
@@ -250,7 +267,7 @@ func (c *ZimaOSClient) CreateFolder(path string) error {
 	return fmt.Errorf("create folder failed with status %d: %s", resp.StatusCode, bodyStr)
 }
 
-func (c *ZimaOSClient) UploadFile(localPath, remotePath string) error {
+func (c *ZimaOSClient) UploadFile(ctx context.Context, localPath, remotePath string) error {
 	if c.token == "" {
 		if err := c.Login(); err != nil {
 			return err
@@ -278,20 +295,41 @@ func (c *ZimaOSClient) UploadFile(localPath, remotePath string) error {
 		defer mw.Close() // Must close mw first to write ending boundary
 
 		// Write form fields first
-		mw.WriteField("path", filepath.Dir(remotePath))
+		if err := mw.WriteField("path", filepath.Dir(remotePath)); err != nil {
+			common.Errorf("Failed to write path field: %v", err)
+			return
+		}
+
 		// Create form file part
 		part, err := mw.CreateFormFile("file", filepath.Base(localPath))
 		if err != nil {
+			common.Errorf("Failed to create form file: %v", err)
 			return
 		}
-		// Stream file content to part
-		io.Copy(part, file)
-		mw.WriteField("modTime", fmt.Sprintf("%s:%d", filepath.Base(localPath), stat.ModTime().Unix()))
+
+		// Use cancelable reader to wrap the file
+		cancelableFile := &cancelableReader{ctx: ctx, reader: file}
+
+		// Copy file content (can be cancelled by context)
+		if _, err := io.Copy(part, cancelableFile); err != nil {
+			if err == context.Canceled || err == context.DeadlineExceeded {
+				common.Infof("File upload cancelled: %v", err)
+			} else {
+				common.Errorf("Failed to copy file: %v", err)
+			}
+			return
+		}
+
+		// Write modTime field
+		if err := mw.WriteField("modTime", fmt.Sprintf("%s:%d", filepath.Base(localPath), stat.ModTime().Unix())); err != nil {
+			common.Errorf("Failed to write modTime field: %v", err)
+			return
+		}
 	}()
 
-	// Send request - http client will read from pr in streaming fashion
+	// Use context to create request (cancelable)
 	url := fmt.Sprintf("%s/v2_1/files/file/uploadV2", c.host)
-	req, err := http.NewRequest("POST", url, pr)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, pr)
 	if err != nil {
 		return fmt.Errorf("failed to create upload request: %w", err)
 	}
@@ -303,8 +341,16 @@ func (c *ZimaOSClient) UploadFile(localPath, remotePath string) error {
 		Timeout: 0,
 	}
 
+	// Send request (will be interrupted when context is cancelled)
 	resp, err := uploadClient.Do(req)
 	if err != nil {
+		// Check if it's a cancellation error
+		if err == context.Canceled {
+			return fmt.Errorf("upload cancelled by user")
+		}
+		if err == context.DeadlineExceeded {
+			return fmt.Errorf("upload deadline exceeded")
+		}
 		return fmt.Errorf("upload request failed: %w", err)
 	}
 	defer resp.Body.Close()

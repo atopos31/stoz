@@ -133,38 +133,6 @@ func (h *MigrationHandler) ListMigrations(c *gin.Context) {
 	})
 }
 
-func (h *MigrationHandler) PauseMigration(c *gin.Context) {
-	taskID := c.Param("taskId")
-	if taskID == "" {
-		models.BadRequest(c, "Task ID is required")
-		return
-	}
-
-	if err := h.migrationSvc.PauseTask(taskID); err != nil {
-		common.Errorf("Failed to pause task: %v", err)
-		models.Error(c, 500, "Failed to pause task: "+err.Error())
-		return
-	}
-
-	models.SuccessWithMessage(c, "Task paused", nil)
-}
-
-func (h *MigrationHandler) ResumeMigration(c *gin.Context) {
-	taskID := c.Param("taskId")
-	if taskID == "" {
-		models.BadRequest(c, "Task ID is required")
-		return
-	}
-
-	if err := h.migrationSvc.ResumeTask(taskID); err != nil {
-		common.Errorf("Failed to resume task: %v", err)
-		models.Error(c, 500, "Failed to resume task: "+err.Error())
-		return
-	}
-
-	models.SuccessWithMessage(c, "Task resumed", nil)
-}
-
 func (h *MigrationHandler) CancelMigration(c *gin.Context) {
 	taskID := c.Param("taskId")
 	if taskID == "" {
