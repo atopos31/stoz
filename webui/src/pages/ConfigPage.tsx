@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../api/client';
@@ -60,6 +60,11 @@ export default function ConfigPage() {
       setDiscovering(false);
     }
   };
+
+  // Auto-discover devices on page load
+  useEffect(() => {
+    handleDiscoverDevices();
+  }, []);
 
   const handleSelectDevice = (device: ZimaOSDevice) => {
     setDialogDevice(device);
