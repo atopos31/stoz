@@ -241,10 +241,6 @@ func (p *WorkerPool) processTask(taskID string) error {
 			elapsed := now.Sub(startTime).Seconds()
 			if elapsed > 0 {
 				status.Speed = int64(float64(status.TransferredSize-lastTransferredSize) / now.Sub(lastUpdateTime).Seconds())
-				if status.Speed > 0 {
-					remaining := status.TotalSize - status.TransferredSize
-					status.ETA = int64(float64(remaining) / float64(status.Speed))
-				}
 			}
 
 			status.UpdatedAt = now

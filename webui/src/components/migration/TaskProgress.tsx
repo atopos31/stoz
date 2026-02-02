@@ -5,10 +5,9 @@ import type { TaskStatus } from '@/types'
 interface Props {
   status: TaskStatus
   formatBytes: (bytes: number) => string
-  formatTime: (seconds: number) => string
 }
 
-export default function TaskProgress({ status, formatBytes, formatTime }: Props) {
+export default function TaskProgress({ status, formatBytes }: Props) {
   const isVerifying = status.status === 'verifying'
 
   return (
@@ -56,7 +55,7 @@ export default function TaskProgress({ status, formatBytes, formatTime }: Props)
             </div>
           </>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="bg-muted p-4 rounded-lg">
               <p className="text-sm text-muted-foreground">Files</p>
               <p className="text-xl font-semibold mt-1">
@@ -72,10 +71,6 @@ export default function TaskProgress({ status, formatBytes, formatTime }: Props)
             <div className="bg-muted p-4 rounded-lg">
               <p className="text-sm text-muted-foreground">Speed</p>
               <p className="text-xl font-semibold mt-1">{formatBytes(status.speed)}/s</p>
-            </div>
-            <div className="bg-muted p-4 rounded-lg">
-              <p className="text-sm text-muted-foreground">ETA</p>
-              <p className="text-xl font-semibold mt-1">{formatTime(status.eta)}</p>
             </div>
           </div>
         )}

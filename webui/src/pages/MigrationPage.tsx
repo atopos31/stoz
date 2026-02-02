@@ -12,7 +12,7 @@ import TaskProgress from '../components/migration/TaskProgress';
 import TaskStatusBadge from '../components/migration/TaskStatusBadge';
 import { X, Home, Loader2, FolderOpen, FolderInput } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { formatBytes, formatTime } from '@/lib/format';
+import { formatBytes } from '@/lib/format';
 
 export default function MigrationPage() {
   const navigate = useNavigate();
@@ -232,7 +232,7 @@ export default function MigrationPage() {
             </div>
           </div>
 
-          <TaskProgress status={status} formatBytes={formatBytes} formatTime={formatTime} />
+          <TaskProgress status={status} formatBytes={formatBytes} />
 
           {status.failed_files > 0 && (
             <motion.div

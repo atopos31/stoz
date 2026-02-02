@@ -20,7 +20,6 @@ type TaskStatus struct {
 	Status          string    `json:"status"`
 	CurrentFile     string    `json:"current_file"`
 	Speed           int64     `json:"speed"`
-	ETA             int64     `json:"eta"`
 	ProcessedFiles  int       `json:"processed_files"`
 	TotalFiles      int       `json:"total_files"`
 	TransferredSize int64     `json:"transferred_size"`

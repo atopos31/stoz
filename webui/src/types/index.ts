@@ -44,7 +44,6 @@ export interface TaskStatus {
   status: string;
   current_file: string;
   speed: number;
-  eta: number;
   processed_files: number;
   total_files: number;
   transferred_size: number;

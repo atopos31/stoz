@@ -12,7 +12,7 @@ import TaskProgress from '../components/migration/TaskProgress'
 import { ArrowLeft, X } from 'lucide-react'
 import { useTaskStore } from '../store/useTaskStore'
 import { useToast } from '@/hooks/use-toast'
-import { formatBytes, formatTime } from '@/lib/format'
+import { formatBytes } from '@/lib/format'
 
 export default function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>()
@@ -184,7 +184,7 @@ export default function TaskDetailPage() {
         <CardContent className="space-y-6">
           <div>
             <h3 className="font-semibold mb-3">Status</h3>
-            <TaskProgress status={status} formatBytes={formatBytes} formatTime={formatTime} />
+            <TaskProgress status={status} formatBytes={formatBytes} />
           </div>
 
           <Separator />
