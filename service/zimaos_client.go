@@ -70,6 +70,15 @@ type FileListResponse struct {
 	Total   int            `json:"total"`
 }
 
+// StorageDevice represents a storage device from ZimaOS
+type StorageDevice struct {
+	Name       string                 `json:"name"`
+	Path       string                 `json:"path"`
+	Type       string                 `json:"type"`
+	Font       string                 `json:"font"`
+	Extensions map[string]interface{} `json:"extensions"`
+}
+
 func NewZimaOSClient(host, username, password string) *ZimaOSClient {
 	return &ZimaOSClient{
 		host:     host,
@@ -419,5 +428,47 @@ func (c *ZimaOSClient) DownloadPartialFile(filePath string, size int64) ([]byte,
 	}
 
 	return data, nil
+}
+
+// GetStorageList retrieves the list of storage devices from ZimaOS
+func (c *ZimaOSClient) GetStorageList() ([]StorageDevice, error) {
+	if c.token == "" {
+		if err := c.Login(); err != nil {
+			return nil, err
+		}
+	}
+
+	requestURL := fmt.Sprintf("%s/v2/local_storage/storages", c.host)
+	req, err := http.NewRequest("GET", requestURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", c.token)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get storage list with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var storages []StorageDevice
+	if err := json.Unmarshal(bodyBytes, &storages); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	common.Infof("Retrieved %d storage devices from ZimaOS", len(storages))
+	return storages, nil
 }
 

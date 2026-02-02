@@ -1,4 +1,4 @@
-import type { ScanResult, TaskStatus, MigrationTask, MigrationOptions, ZimaOSDevice } from '../types';
+import type { ScanResult, TaskStatus, MigrationTask, MigrationOptions, ZimaOSDevice, StorageListResponse } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -48,6 +48,13 @@ export const api = {
 
   testConnection: async (host: string, username: string, password: string) => {
     return request<{ token: string }>('/zimaos/test', {
+      method: 'POST',
+      body: JSON.stringify({ host, username, password }),
+    });
+  },
+
+  getStorageList: async (host: string, username: string, password: string) => {
+    return request<StorageListResponse>('/zimaos/storages', {
       method: 'POST',
       body: JSON.stringify({ host, username, password }),
     });

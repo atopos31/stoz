@@ -65,6 +65,7 @@ func setupRoutes(router *gin.Engine) {
 		api.POST("/folder/details", scanHandler.GetFolderDetails)
 		api.GET("/discover", discoveryHandler.Discover)
 		api.POST("/zimaos/test", migrationHandler.TestConnection)
+		api.POST("/zimaos/storages", migrationHandler.GetStorageList)
 		api.POST("/migration", migrationHandler.CreateMigration)
 		api.GET("/migration/:taskId", migrationHandler.GetMigrationStatus)
 		api.GET("/migrations", migrationHandler.ListMigrations)

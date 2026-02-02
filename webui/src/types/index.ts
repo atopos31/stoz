@@ -77,3 +77,20 @@ export interface ZimaOSDevice {
   ip: string;
   image_url: string;
 }
+
+export interface StorageDevice {
+  name: string;
+  path: string;
+  type: 'SYSTEM' | 'HDD' | 'SSD' | 'USB' | 'NETWORK';
+  font?: string;
+  extensions: {
+    health: boolean;
+    size: number;
+    used: number;
+  };
+}
+
+export interface StorageListResponse {
+  storages: StorageDevice[];
+  count: number;
+}

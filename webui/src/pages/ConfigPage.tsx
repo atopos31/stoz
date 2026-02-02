@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { api } from '../api/client';
 import DeviceCard from '../components/DeviceCard';
 import DeviceConfigDialog from '../components/DeviceConfigDialog';
+import { StorageSelector } from '../components/StorageSelector';
 import type { ZimaOSDevice } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '@/hooks/use-toast';
@@ -14,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function ConfigPage() {
   const navigate = useNavigate();
@@ -35,6 +36,7 @@ export default function ConfigPage() {
   const [error, setError] = useState<string>('');
   const [discovering, setDiscovering] = useState(false);
   const [discoveryError, setDiscoveryError] = useState<string>('');
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   // Device Config Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -206,18 +208,53 @@ export default function ConfigPage() {
         </div>
       )}
 
-      <div className="space-y-4 mb-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Base Path on ZimaOS
-          </label>
-          <input
-            type="text"
-            value={zimaosConfig.basePath}
-            onChange={(e) => setZimaosConfig({ basePath: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+      <div className="space-y-4 mb-6 border-t pt-6">
+        <h3 className="font-semibold mb-3">Base Path Configuration</h3>
+
+        {isConfigValid ? (
+          <>
+            <StorageSelector />
+
+            {/* Advanced Options */}
+            <div className="mt-4">
+              <button
+                onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+              >
+                {showAdvancedOptions ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+                <span className="font-medium">Advanced Options</span>
+              </button>
+
+              {showAdvancedOptions && (
+                <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Manual Base Path Override
+                  </label>
+                  <input
+                    type="text"
+                    value={zimaosConfig.basePath}
+                    onChange={(e) => setZimaosConfig({ basePath: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="/media/ZimaOS-HD/backup"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    Manually override the base path. This will replace the path selected above.
+                  </p>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-700">
+              Please connect to a ZimaOS device first to select a storage device.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="border-t pt-6 mb-6">

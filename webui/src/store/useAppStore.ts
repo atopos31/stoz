@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { ScanResult, MigrationOptions, ZimaOSDevice } from '../types'
+import type { ScanResult, MigrationOptions, ZimaOSDevice, StorageDevice } from '../types'
 
 export type WorkflowStep = 'select' | 'config' | 'migration'
 
@@ -43,6 +43,14 @@ interface AppState {
   selectedDevice: ZimaOSDevice | null
   setSelectedDevice: (device: ZimaOSDevice | null) => void
 
+  // Storage devices
+  storageDevices: StorageDevice[]
+  setStorageDevices: (devices: StorageDevice[]) => void
+  selectedStorage: StorageDevice | null
+  setSelectedStorage: (device: StorageDevice | null) => void
+  customSubPath: string
+  setCustomSubPath: (path: string) => void
+
   // Migration options
   migrationOptions: MigrationOptions
   setMigrationOptions: (options: Partial<MigrationOptions>) => void
@@ -67,6 +75,9 @@ const initialState = {
   },
   discoveredDevices: [],
   selectedDevice: null,
+  storageDevices: [],
+  selectedStorage: null,
+  customSubPath: '',
   migrationOptions: {
     overwrite_existing: false,
     skip_errors: true,
@@ -115,6 +126,30 @@ export const useAppStore = create<AppState>()(
       setDiscoveredDevices: (devices) => set({ discoveredDevices: devices }),
       setSelectedDevice: (device) => set({ selectedDevice: device }),
 
+      setStorageDevices: (devices) => set({ storageDevices: devices }),
+      setSelectedStorage: (device) => {
+        const { customSubPath } = get()
+        const basePath = device
+          ? `${device.path}${customSubPath}`.replace(/\/+$/, '') || device.path
+          : ''
+        set({
+          selectedStorage: device,
+          zimaosConfig: { ...get().zimaosConfig, basePath }
+        })
+      },
+      setCustomSubPath: (path) => {
+        const { selectedStorage } = get()
+        // Remove trailing slash and validate path
+        const cleanPath = path.replace(/\/+$/, '')
+        const basePath = selectedStorage
+          ? `${selectedStorage.path}${cleanPath}`.replace(/\/+$/, '') || selectedStorage.path
+          : cleanPath
+        set({
+          customSubPath: cleanPath,
+          zimaosConfig: { ...get().zimaosConfig, basePath }
+        })
+      },
+
       setMigrationOptions: (options) =>
         set((state) => ({
           migrationOptions: { ...state.migrationOptions, ...options }
@@ -141,6 +176,9 @@ export const useAppStore = create<AppState>()(
         },
         discoveredDevices: state.discoveredDevices,
         selectedDevice: state.selectedDevice,
+        storageDevices: state.storageDevices,
+        selectedStorage: state.selectedStorage,
+        customSubPath: state.customSubPath,
         migrationOptions: state.migrationOptions,
       }),
     }

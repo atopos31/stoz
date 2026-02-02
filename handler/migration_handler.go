@@ -180,3 +180,36 @@ func (h *MigrationHandler) CancelMigration(c *gin.Context) {
 
 	models.SuccessWithMessage(c, "Task cancelled", nil)
 }
+
+type GetStorageListRequest struct {
+	Host     string `json:"host" binding:"required"`
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+func (h *MigrationHandler) GetStorageList(c *gin.Context) {
+	var req GetStorageListRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		models.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	client := service.NewZimaOSClient(req.Host, req.Username, req.Password)
+	if err := client.Login(); err != nil {
+		common.Errorf("Login failed: %v", err)
+		models.Error(c, 500, "Login failed: "+err.Error())
+		return
+	}
+
+	storages, err := client.GetStorageList()
+	if err != nil {
+		common.Errorf("Failed to get storage list: %v", err)
+		models.Error(c, 500, "Failed to get storage list: "+err.Error())
+		return
+	}
+
+	models.Success(c, gin.H{
+		"storages": storages,
+		"count":    len(storages),
+	})
+}
