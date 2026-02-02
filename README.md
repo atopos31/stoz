@@ -12,7 +12,7 @@ STOZ is a Docker-based application that simplifies migrating data from Synology 
 - **Selective Migration**: Choose specific folders to migrate with an intuitive UI
 - **Real-time Progress Tracking**: Monitor migration progress with detailed statistics
 - **File Verification**: Three-layer integrity verification after upload (size + timestamp + MD5)
-- **Pause/Resume Support**: Full control over migration tasks
+- **Instant Cancellation**: Cancel migration tasks immediately, even during large file uploads
 - **Error Handling**: Configurable error handling with retry logic
 - **Persistent State**: Tasks survive container restarts
 - **Web UI**: Modern React-based interface for easy operation
@@ -114,14 +114,11 @@ Watch real-time progress including:
 - Files processed / total files
 - Data transferred / total data
 - Current transfer speed
-- Estimated time remaining (ETA)
 - Failed file count
 - **Verification progress** (when enabled)
 
 Control the migration:
-- **Pause**: Temporarily stop the migration
-- **Resume**: Continue a paused migration
-- **Cancel**: Stop and cancel the migration
+- **Cancel**: Stop and cancel the migration (cancels immediately, even during file uploads)
 
 ## File Verification
 
@@ -164,8 +161,6 @@ POST /api/v1/zimaos/test
 POST /api/v1/migration              # Create migration task
 GET /api/v1/migration/:taskId       # Get task status
 GET /api/v1/migrations              # List all tasks
-POST /api/v1/migration/:taskId/pause    # Pause task
-POST /api/v1/migration/:taskId/resume   # Resume task
 POST /api/v1/migration/:taskId/cancel   # Cancel task
 ```
 
@@ -249,8 +244,9 @@ stoz/
    - Logs into ZimaOS
    - Recursively scans source folders
    - Creates directory structure on ZimaOS
-   - Uploads files with chunking and retry logic
+   - Uploads files with chunking and retry logic using context-based cancellation
    - Updates progress in real-time
+   - Can be cancelled instantly via context cancellation (interrupts ongoing file uploads)
 5. **File Verification Phase** (if enabled):
    - Iterates through all uploaded files
    - Retrieves remote file metadata via ZimaOS API
@@ -262,10 +258,11 @@ stoz/
 ### Key Features
 
 - **Worker Pool**: Fixed number of goroutines process tasks concurrently
+- **Context-based Cancellation**: Uses Go contexts to instantly cancel ongoing file uploads
 - **Task Persistence**: All tasks stored in SQLite for recovery after restart
-- **Chunked Upload**: Large files uploaded in 10MB chunks
+- **Chunked Upload**: Large files uploaded in 10MB chunks with cancelable readers
 - **Exponential Backoff**: Failed uploads retry with exponential delay
-- **Progress Tracking**: Real-time progress with speed and ETA calculation
+- **Progress Tracking**: Real-time progress with speed calculation
 - **Error Logging**: All errors logged to database with error type (upload/verify)
 - **Partial Download**: Uses HTTP Range requests for efficient verification
 
