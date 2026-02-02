@@ -102,7 +102,7 @@ export default function MigrationPage() {
 
   const handleBackToStart = () => {
     reset();
-    navigate('/workflow/scan');
+    navigate('/workflow/select');
   };
 
   if (!taskId) {

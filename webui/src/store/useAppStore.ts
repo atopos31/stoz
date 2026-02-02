@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { ScanResult, MigrationOptions, ZimaOSDevice } from '../types'
 
-export type WorkflowStep = 'scan' | 'select' | 'config' | 'migration'
+export type WorkflowStep = 'select' | 'config' | 'migration'
 
 interface AppState {
   // Workflow state
@@ -54,7 +54,7 @@ interface AppState {
 const SCAN_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 const initialState = {
-  currentStep: 'scan' as WorkflowStep,
+  currentStep: 'select' as WorkflowStep,
   selectedFolders: [],
   currentTaskId: '',
   scanResult: null,

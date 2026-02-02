@@ -2,10 +2,9 @@ import { motion } from 'framer-motion'
 import { useAppStore } from '@/store/useAppStore'
 
 const steps = [
-  { id: 'scan', label: 'Scan', number: 1 },
-  { id: 'select', label: 'Select', number: 2 },
-  { id: 'config', label: 'Configure', number: 3 },
-  { id: 'migration', label: 'Migrate', number: 4 },
+  { id: 'select', label: 'Select', number: 1 },
+  { id: 'config', label: 'Configure', number: 2 },
+  { id: 'migration', label: 'Migrate', number: 3 },
 ]
 
 export default function StepIndicator() {

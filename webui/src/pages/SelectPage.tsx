@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowRight, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SelectPage() {
@@ -22,6 +22,30 @@ export default function SelectPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [rescanning, setRescanning] = useState(false);
+
+  const handleScan = async () => {
+    setRescanning(true);
+    setError('');
+    try {
+      const result = await api.scan();
+      setScanResult(result);
+      toast({
+        title: 'Scan Complete',
+        description: `Found ${result.volumes.length} volume(s)`,
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to scan';
+      setError(errorMsg);
+      toast({
+        title: 'Scan Failed',
+        description: errorMsg,
+        variant: 'destructive',
+      });
+    } finally {
+      setRescanning(false);
+    }
+  };
 
   useEffect(() => {
     const loadScanResult = async () => {
@@ -64,10 +88,6 @@ export default function SelectPage() {
     navigate('/workflow/config');
   };
 
-  const handleBack = () => {
-    setCurrentStep('scan');
-    navigate('/workflow/scan');
-  };
 
   if (loading) {
     return (
@@ -149,9 +169,13 @@ export default function SelectPage() {
           </div>
 
           <div className="flex justify-between">
-            <Button variant="outline" onClick={handleBack}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
+            <Button
+              variant="outline"
+              onClick={handleScan}
+              disabled={rescanning || loading}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${rescanning ? 'animate-spin' : ''}`} />
+              {rescanning ? 'Scanning...' : 'Rescan'}
             </Button>
             <Button onClick={handleNext} disabled={selectedFolders.length === 0}>
               Next: Configure

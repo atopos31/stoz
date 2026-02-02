@@ -18,7 +18,7 @@ export default function NotFoundPage() {
             The page you are looking for does not exist.
           </p>
           <Button asChild>
-            <Link to="/workflow/scan">
+            <Link to="/workflow/select">
               <Home className="mr-2 h-4 w-4" />
               Go to Home
             </Link>
