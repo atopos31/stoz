@@ -15,7 +15,7 @@ export default function SelectPage() {
   const { toast } = useToast();
   const scanResult = useAppStore((state) => state.scanResult);
   const setScanResult = useAppStore((state) => state.setScanResult);
-  const selectedFolders = useAppStore((state) => state.selectedFolders);
+  const selectedFolders = useAppStore((state) => state.selectedFolders) || [];
   const setSelectedFolders = useAppStore((state) => state.setSelectedFolders);
   const isScanResultValid = useAppStore((state) => state.isScanResultValid);
   const setCurrentStep = useAppStore((state) => state.setCurrentStep);
@@ -32,7 +32,7 @@ export default function SelectPage() {
       setScanResult(result);
       toast({
         title: 'Scan Complete',
-        description: `Found ${result.volumes.length} volume(s)`,
+        description: `Found ${result.volumes?.length || 0} volume(s)`,
       });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to scan';
@@ -133,7 +133,7 @@ export default function SelectPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4 mb-6 max-h-[600px] overflow-y-auto">
-            {scanResult?.volumes.map((volume, volumeIndex) => (
+            {scanResult?.volumes?.map((volume, volumeIndex) => (
               <motion.div
                 key={volume.name}
                 initial={{ opacity: 0, x: -20 }}
@@ -146,7 +146,7 @@ export default function SelectPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {volume.folders.map((folder) => (
+                      {volume.folders?.map((folder) => (
                         <label
                           key={folder.path}
                           className="flex items-center p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors"
@@ -160,12 +160,12 @@ export default function SelectPage() {
                             <p className="text-sm text-muted-foreground">{folder.path}</p>
                           </div>
                         </label>
-                      ))}
+                      )) || <p className="text-sm text-muted-foreground">No folders found</p>}
                     </div>
                   </CardContent>
                 </Card>
               </motion.div>
-            ))}
+            )) || <p className="text-sm text-muted-foreground">No volumes found</p>}
           </div>
 
           <div className="flex justify-between">

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../api/client';
 import DeviceCard from '../components/DeviceCard';
+import DeviceConfigDialog from '../components/DeviceConfigDialog';
+import type { ZimaOSDevice } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -12,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 
 export default function ConfigPage() {
   const navigate = useNavigate();
@@ -29,12 +31,15 @@ export default function ConfigPage() {
   const setCurrentTaskId = useAppStore((state) => state.setCurrentTaskId);
   const setCurrentStep = useAppStore((state) => state.setCurrentStep);
 
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string>('');
   const [discovering, setDiscovering] = useState(false);
   const [discoveryError, setDiscoveryError] = useState<string>('');
+
+  // Device Config Dialog states
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<'discovered' | 'manual'>('discovered');
+  const [dialogDevice, setDialogDevice] = useState<ZimaOSDevice | null>(null);
 
   const handleDiscoverDevices = async () => {
     setDiscovering(true);
@@ -54,46 +59,35 @@ export default function ConfigPage() {
     }
   };
 
-  const handleSelectDevice = (device: typeof selectedDevice) => {
-    if (device) {
-      setSelectedDevice(device);
-      setZimaosConfig({ host: `http://${device.ip}:${device.port}` });
-      setTestResult(null);
-    }
+  const handleSelectDevice = (device: ZimaOSDevice) => {
+    setDialogDevice(device);
+    setDialogMode('discovered');
+    setDialogOpen(true);
   };
 
-  const handleTestConnection = async () => {
-    if (!zimaosConfig.host || !zimaosConfig.username || !zimaosConfig.password) {
-      toast({
-        title: 'Missing Information',
-        description: 'Please fill in all ZimaOS connection details',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const handleManualAdd = () => {
+    setDialogDevice(null);
+    setDialogMode('manual');
+    setDialogOpen(true);
+  };
 
-    setTesting(true);
-    setTestResult(null);
-    setError('');
-
-    try {
-      await api.testConnection(zimaosConfig.host, zimaosConfig.username, zimaosConfig.password);
-      setTestResult({ success: true, message: 'Connection successful!' });
-    } catch (err) {
-      setTestResult({
-        success: false,
-        message: err instanceof Error ? err.message : 'Connection failed',
-      });
-    } finally {
-      setTesting(false);
+  const handleConfigSuccess = (config: { host: string; username: string; password: string }) => {
+    setZimaosConfig(config);
+    if (dialogDevice) {
+      setSelectedDevice(dialogDevice);
     }
+    toast({
+      title: 'Connection Successful',
+      description: 'ZimaOS device configured successfully',
+    });
   };
 
   const handleStartMigration = async () => {
-    if (!testResult?.success) {
+    // Check if configuration is valid
+    if (!zimaosConfig.host || !zimaosConfig.username || !zimaosConfig.password) {
       toast({
-        title: 'Connection Not Tested',
-        description: 'Please test the connection first',
+        title: 'Configuration Required',
+        description: 'Please configure ZimaOS device first',
         variant: 'destructive',
       });
       return;
@@ -125,6 +119,8 @@ export default function ConfigPage() {
     setCurrentStep('select');
     navigate('/workflow/select');
   };
+
+  const isConfigValid = !!(zimaosConfig.host && zimaosConfig.username && zimaosConfig.password);
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -184,46 +180,33 @@ export default function ConfigPage() {
             ))}
           </div>
         )}
+
+        {/* Manual Add Device Button */}
+        <div className="mt-4">
+          <button
+            onClick={handleManualAdd}
+            className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-purple-700"
+          >
+            <Plus className="h-5 w-5" />
+            <span className="font-medium">Add Device Manually</span>
+          </button>
+        </div>
       </div>
 
+      {/* Connection Status */}
+      {isConfigValid && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center gap-2 text-green-700">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="font-medium">ZimaOS device connected</span>
+          </div>
+          <p className="text-sm text-green-600 mt-1">{zimaosConfig.host}</p>
+        </div>
+      )}
+
       <div className="space-y-4 mb-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            ZimaOS Host (e.g., http://192.168.1.100:80)
-          </label>
-          <input
-            type="text"
-            value={zimaosConfig.host}
-            onChange={(e) => setZimaosConfig({ host: e.target.value })}
-            placeholder="http://192.168.1.100:80"
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Username
-          </label>
-          <input
-            type="text"
-            value={zimaosConfig.username}
-            onChange={(e) => setZimaosConfig({ username: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Password
-          </label>
-          <input
-            type="password"
-            value={zimaosConfig.password}
-            onChange={(e) => setZimaosConfig({ password: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Base Path on ZimaOS
@@ -234,27 +217,6 @@ export default function ConfigPage() {
             onChange={(e) => setZimaosConfig({ basePath: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-        </div>
-
-        <div>
-          <button
-            onClick={handleTestConnection}
-            disabled={testing}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300"
-          >
-            {testing ? 'Testing...' : 'Test Connection'}
-          </button>
-          {testResult && (
-            <div
-              className={`mt-2 px-3 py-2 rounded ${
-                testResult.success
-                  ? 'bg-green-50 text-green-700 border border-green-200'
-                  : 'bg-red-50 text-red-700 border border-red-200'
-              }`}
-            >
-              {testResult.message}
-            </div>
-          )}
         </div>
       </div>
 
@@ -315,13 +277,22 @@ export default function ConfigPage() {
         </button>
         <button
           onClick={handleStartMigration}
-          disabled={!testResult?.success || creating}
+          disabled={!isConfigValid || creating}
           className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {creating && <Loader2 className="h-4 w-4 animate-spin" />}
           {creating ? 'Creating...' : 'Start Migration'}
         </button>
       </div>
+
+      {/* Device Config Dialog */}
+      <DeviceConfigDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        mode={dialogMode}
+        device={dialogDevice}
+        onSuccess={handleConfigSuccess}
+      />
 
       {/* Creating Migration Dialog */}
       <Dialog open={creating} onOpenChange={() => {}}>
