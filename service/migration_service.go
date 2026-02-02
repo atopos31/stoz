@@ -32,6 +32,11 @@ type TaskStatus struct {
 	VerifyFailedFiles   int `json:"verify_failed_files"`   // Number of verification failures
 	StartedAt           time.Time `json:"started_at"`
 	UpdatedAt           time.Time `json:"updated_at"`
+
+	// Path information fields
+	SourceFolders []string `json:"source_folders"` // Source folder paths
+	ZimaOSHost    string   `json:"zimaos_host"`    // ZimaOS host address
+	BasePath      string   `json:"base_path"`      // Target base path
 }
 
 type MigrationOptions struct {
@@ -93,15 +98,30 @@ func (s *MigrationService) GetTask(taskID string) (*models.MigrationTask, error)
 }
 
 func (s *MigrationService) GetTaskStatus(taskID string) (*TaskStatus, error) {
-	if status, ok := s.taskStatus.Load(taskID); ok {
-		return status.(*TaskStatus), nil
-	}
-
+	// Always get task from database to fill path information
 	task, err := s.GetTask(taskID)
 	if err != nil {
 		return nil, err
 	}
 
+	// Parse source_folders from JSON string
+	var sourceFolders []string
+	if err := json.Unmarshal([]byte(task.SourceFolders), &sourceFolders); err != nil {
+		common.Warnf("Failed to parse source_folders for task %s: %v", taskID, err)
+		sourceFolders = []string{} // Default to empty array
+	}
+
+	// Check if there's a runtime status in cache
+	if status, ok := s.taskStatus.Load(taskID); ok {
+		cachedStatus := status.(*TaskStatus)
+		// Fill path information into cached status
+		cachedStatus.SourceFolders = sourceFolders
+		cachedStatus.ZimaOSHost = task.ZimaOSHost
+		cachedStatus.BasePath = task.BasePath
+		return cachedStatus, nil
+	}
+
+	// No cache, return status from database
 	return &TaskStatus{
 		TaskID:          task.TaskID,
 		Status:          task.Status,
@@ -112,6 +132,11 @@ func (s *MigrationService) GetTaskStatus(taskID string) (*TaskStatus, error) {
 		Progress:        task.Progress,
 		FailedFiles:     task.FailedFiles,
 		UpdatedAt:       task.UpdatedAt,
+
+		// Fill path information
+		SourceFolders: sourceFolders,
+		ZimaOSHost:    task.ZimaOSHost,
+		BasePath:      task.BasePath,
 	}, nil
 }
 

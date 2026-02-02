@@ -133,15 +133,6 @@ export default function ConfigPage() {
     <div className="bg-white rounded-lg shadow p-6">
       <h2 className="text-2xl font-bold mb-4">Configure Migration</h2>
 
-      <div className="mb-6">
-        <h3 className="font-semibold mb-2">Selected Folders ({selectedFolders.length})</h3>
-        <div className="bg-gray-50 p-3 rounded max-h-32 overflow-y-auto">
-          {selectedFolders.map((folder) => (
-            <p key={folder} className="text-sm text-gray-700 py-1">{folder}</p>
-          ))}
-        </div>
-      </div>
-
       <div className="mb-6 border-b pb-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold">Auto Discover ZimaOS Devices</h3>

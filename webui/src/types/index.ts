@@ -56,6 +56,11 @@ export interface TaskStatus {
   verify_failed_files: number;
   started_at: string;
   updated_at: string;
+
+  // Path information fields
+  source_folders: string[];  // Source folder paths
+  zimaos_host: string;       // ZimaOS host address
+  base_path: string;         // Target base path
 }
 
 export interface MigrationOptions {
