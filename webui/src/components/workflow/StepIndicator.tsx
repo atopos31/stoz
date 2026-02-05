@@ -13,56 +13,57 @@ export default function StepIndicator() {
   const currentStepIndex = steps.findIndex((s) => s.id === currentStep)
 
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-2">
-        {steps.map((step, index) => {
-          const isActive = index <= currentStepIndex
-          const isCurrent = step.id === currentStep
+    <div className="flex flex-col items-center gap-8 py-4">
+      {steps.map((step, index) => {
+        const isActive = index <= currentStepIndex
+        const isCurrent = step.id === currentStep
 
-          return (
-            <div key={step.id} className="flex-1 flex items-center">
-              <div className="flex flex-col items-center flex-1">
+        return (
+          <div key={step.id} className="flex flex-col items-center relative">
+            {/* Step circle */}
+            <motion.div
+              initial={false}
+              animate={{
+                scale: isCurrent ? 1.1 : 1,
+              }}
+              className={`w-12 h-12 rounded-full flex items-center justify-center font-semibold transition-colors ${
+                isActive
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {step.number}
+            </motion.div>
+
+            {/* Step label */}
+            <span
+              className={`mt-2 text-xs font-medium text-center ${
+                isCurrent ? 'text-primary' : isActive ? 'text-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              {step.label}
+            </span>
+
+            {/* Vertical connecting line */}
+            {index < steps.length - 1 && (
+              <div className="absolute top-12 left-1/2 -translate-x-1/2 w-0.5 h-16">
                 <motion.div
                   initial={false}
                   animate={{
-                    scale: isCurrent ? 1.1 : 1,
+                    scaleY: index < currentStepIndex ? 1 : 0,
                   }}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors ${
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {step.number}
-                </motion.div>
-                <span
-                  className={`mt-2 text-sm font-medium ${
-                    isCurrent ? 'text-primary' : isActive ? 'text-foreground' : 'text-muted-foreground'
-                  }`}
-                >
-                  {step.label}
-                </span>
+                  transition={{ duration: 0.3 }}
+                  className="h-full bg-primary origin-top"
+                  style={{ transformOrigin: 'top' }}
+                />
+                {index >= currentStepIndex && (
+                  <div className="absolute inset-0 bg-muted" />
+                )}
               </div>
-              {index < steps.length - 1 && (
-                <div className="flex-1 h-0.5 mx-2 mb-6">
-                  <motion.div
-                    initial={false}
-                    animate={{
-                      scaleX: index < currentStepIndex ? 1 : 0,
-                    }}
-                    transition={{ duration: 0.3 }}
-                    className="h-full bg-primary origin-left"
-                    style={{ transformOrigin: 'left' }}
-                  />
-                  {index >= currentStepIndex && (
-                    <div className="h-full bg-muted" />
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
