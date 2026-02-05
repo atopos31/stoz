@@ -83,6 +83,20 @@ export default function TaskProgress({ status, formatBytes }: Props) {
             <p className="text-sm font-mono bg-muted p-2 rounded truncate">
               {status.current_file}
             </p>
+            {!isVerifying && status.current_file_size > 0 && (
+              <div className="mt-3">
+                <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                  <span>Current file progress</span>
+                  <span className="font-semibold text-foreground">
+                    {(status.current_file_progress || 0).toFixed(1)}%
+                  </span>
+                </div>
+                <Progress value={status.current_file_progress || 0} className="h-2" />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatBytes(status.current_file_transferred || 0)} / {formatBytes(status.current_file_size || 0)}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

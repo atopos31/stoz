@@ -186,7 +186,9 @@ func (p *WorkerPool) processTask(taskID string) error {
 	p.migrationSvc.UpdateTaskStatus(taskID, status)
 
 	startTime := time.Now()
-	lastUpdateTime := time.Now()
+	lastSpeedUpdate := time.Now()
+	lastCacheUpdate := time.Now()
+	lastDBUpdate := time.Now()
 	var lastTransferredSize int64
 
 	for i, fileInfo := range fileList {
@@ -210,6 +212,11 @@ func (p *WorkerPool) processTask(taskID string) error {
 		}
 
 		status.CurrentFile = fileInfo.LocalPath
+		status.CurrentFileSize = fileInfo.Size
+		status.CurrentFileTransferred = 0
+		status.CurrentFileProgress = 0
+		status.UpdatedAt = time.Now()
+		p.migrationSvc.UpdateTaskStatus(taskID, status)
 
 		remoteDir := filepath.Dir(fileInfo.RemotePath)
 		if err := client.CreateFolder(remoteDir); err != nil {
@@ -222,7 +229,67 @@ func (p *WorkerPool) processTask(taskID string) error {
 			continue
 		}
 
-		if err := p.uploadFileWithRetry(ctx, client, fileInfo.LocalPath, fileInfo.RemotePath, config.AppConfig.Worker.MaxRetries); err != nil {
+		baseTransferred := status.TransferredSize
+		var fileTransferred int64
+
+		onReset := func() {
+			fileTransferred = 0
+			status.CurrentFileTransferred = 0
+			status.CurrentFileProgress = 0
+			status.TransferredSize = baseTransferred
+			if status.TotalSize > 0 {
+				status.Progress = float64(status.TransferredSize) / float64(status.TotalSize) * 100
+			} else {
+				status.Progress = 100
+			}
+			status.UpdatedAt = time.Now()
+			p.migrationSvc.UpdateTaskStatus(taskID, status)
+		}
+
+		onProgress := func(delta int64) {
+			fileTransferred += delta
+			status.CurrentFileTransferred = fileTransferred
+			if fileInfo.Size > 0 {
+				status.CurrentFileProgress = float64(fileTransferred) / float64(fileInfo.Size) * 100
+			} else {
+				status.CurrentFileProgress = 100
+			}
+			status.TransferredSize = baseTransferred + fileTransferred
+			if status.TotalSize > 0 {
+				status.Progress = float64(status.TransferredSize) / float64(status.TotalSize) * 100
+			} else {
+				status.Progress = 100
+			}
+
+			now := time.Now()
+			if now.Sub(lastSpeedUpdate) >= 1*time.Second {
+				elapsed := now.Sub(startTime).Seconds()
+				if elapsed > 0 {
+					status.Speed = int64(float64(status.TransferredSize-lastTransferredSize) / now.Sub(lastSpeedUpdate).Seconds())
+				}
+				lastSpeedUpdate = now
+				lastTransferredSize = status.TransferredSize
+			}
+
+			if now.Sub(lastCacheUpdate) >= 200*time.Millisecond || fileTransferred == fileInfo.Size {
+				status.UpdatedAt = now
+				p.migrationSvc.UpdateTaskStatus(taskID, status)
+				lastCacheUpdate = now
+			}
+
+			if now.Sub(lastDBUpdate) >= 1*time.Second || fileTransferred == fileInfo.Size {
+				task.ProcessedFiles = status.ProcessedFiles
+				task.TransferredSize = status.TransferredSize
+				task.Progress = status.Progress
+				task.FailedFiles = status.FailedFiles
+				if err := p.migrationSvc.UpdateTask(task); err != nil {
+					common.Errorf("Failed to update task progress: %v", err)
+				}
+				lastDBUpdate = now
+			}
+		}
+
+		if err := p.uploadFileWithRetry(ctx, client, fileInfo.LocalPath, fileInfo.RemotePath, config.AppConfig.Worker.MaxRetries, onProgress, onReset); err != nil {
 			common.Errorf("Failed to upload file %s: %v", fileInfo.LocalPath, err)
 			if !options.SkipErrors {
 				return p.failTask(task, fmt.Errorf("failed to upload file: %w", err))
@@ -233,27 +300,34 @@ func (p *WorkerPool) processTask(taskID string) error {
 		}
 
 		status.ProcessedFiles = i + 1
-		status.TransferredSize += fileInfo.Size
-		status.Progress = float64(status.TransferredSize) / float64(status.TotalSize) * 100
+		status.TransferredSize = baseTransferred + fileInfo.Size
+		if status.TotalSize > 0 {
+			status.Progress = float64(status.TransferredSize) / float64(status.TotalSize) * 100
+		} else {
+			status.Progress = 100
+		}
+		status.CurrentFileTransferred = fileInfo.Size
+		status.CurrentFileProgress = 100
 
 		now := time.Now()
-		if now.Sub(lastUpdateTime) >= 1*time.Second {
+		if now.Sub(lastSpeedUpdate) >= 1*time.Second {
 			elapsed := now.Sub(startTime).Seconds()
 			if elapsed > 0 {
-				status.Speed = int64(float64(status.TransferredSize-lastTransferredSize) / now.Sub(lastUpdateTime).Seconds())
+				status.Speed = int64(float64(status.TransferredSize-lastTransferredSize) / now.Sub(lastSpeedUpdate).Seconds())
 			}
-
-			status.UpdatedAt = now
-			p.migrationSvc.UpdateTaskStatus(taskID, status)
-
-			task.ProcessedFiles = status.ProcessedFiles
-			task.TransferredSize = status.TransferredSize
-			task.Progress = status.Progress
-			task.FailedFiles = status.FailedFiles
-			p.migrationSvc.UpdateTask(task)
-
-			lastUpdateTime = now
+			lastSpeedUpdate = now
 			lastTransferredSize = status.TransferredSize
+		}
+
+		status.UpdatedAt = now
+		p.migrationSvc.UpdateTaskStatus(taskID, status)
+
+		task.ProcessedFiles = status.ProcessedFiles
+		task.TransferredSize = status.TransferredSize
+		task.Progress = status.Progress
+		task.FailedFiles = status.FailedFiles
+		if err := p.migrationSvc.UpdateTask(task); err != nil {
+			common.Errorf("Failed to update task progress: %v", err)
 		}
 	}
 
@@ -358,7 +432,7 @@ func (p *WorkerPool) scanFolders(folders []string, basePath string, options serv
 	return fileList, totalSize, nil
 }
 
-func (p *WorkerPool) uploadFileWithRetry(ctx context.Context, client *service.ZimaOSClient, localPath, remotePath string, maxRetries int) error {
+func (p *WorkerPool) uploadFileWithRetry(ctx context.Context, client *service.ZimaOSClient, localPath, remotePath string, maxRetries int, onProgress func(delta int64), onReset func()) error {
 	var err error
 	for i := 0; i < maxRetries; i++ {
 		// Check if context is cancelled before retry
@@ -368,7 +442,10 @@ func (p *WorkerPool) uploadFileWithRetry(ctx context.Context, client *service.Zi
 		default:
 		}
 
-		err = client.UploadFile(ctx, localPath, remotePath)
+		if onReset != nil {
+			onReset()
+		}
+		err = client.UploadFile(ctx, localPath, remotePath, onProgress)
 		if err == nil {
 			return nil
 		}
@@ -546,4 +623,3 @@ func (p *WorkerPool) calculateFileMD5(filePath string, size int64) (string, erro
 	hash.Write(buffer[:n])
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
-

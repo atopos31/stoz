@@ -267,7 +267,7 @@ func (c *ZimaOSClient) CreateFolder(path string) error {
 	return fmt.Errorf("create folder failed with status %d: %s", resp.StatusCode, bodyStr)
 }
 
-func (c *ZimaOSClient) UploadFile(ctx context.Context, localPath, remotePath string) error {
+func (c *ZimaOSClient) UploadFile(ctx context.Context, localPath, remotePath string, onProgress func(delta int64)) error {
 	if c.token == "" {
 		if err := c.Login(); err != nil {
 			return err
@@ -310,8 +310,13 @@ func (c *ZimaOSClient) UploadFile(ctx context.Context, localPath, remotePath str
 		// Use cancelable reader to wrap the file
 		cancelableFile := &cancelableReader{ctx: ctx, reader: file}
 
+		progressReader := &progressReader{
+			reader:     cancelableFile,
+			onProgress: onProgress,
+		}
+
 		// Copy file content (can be cancelled by context)
-		if _, err := io.Copy(part, cancelableFile); err != nil {
+		if _, err := io.Copy(part, progressReader); err != nil {
 			if err == context.Canceled || err == context.DeadlineExceeded {
 				common.Infof("File upload cancelled: %v", err)
 			} else {
@@ -362,6 +367,19 @@ func (c *ZimaOSClient) UploadFile(ctx context.Context, localPath, remotePath str
 
 	common.Infof("File uploaded successfully: %s -> %s", localPath, remotePath)
 	return nil
+}
+
+type progressReader struct {
+	reader     io.Reader
+	onProgress func(delta int64)
+}
+
+func (p *progressReader) Read(buf []byte) (int, error) {
+	n, err := p.reader.Read(buf)
+	if n > 0 && p.onProgress != nil {
+		p.onProgress(int64(n))
+	}
+	return n, err
 }
 
 func (c *ZimaOSClient) GetToken() string {
@@ -517,4 +535,3 @@ func (c *ZimaOSClient) GetStorageList() ([]StorageDevice, error) {
 	common.Infof("Retrieved %d storage devices from ZimaOS", len(storages))
 	return storages, nil
 }
-

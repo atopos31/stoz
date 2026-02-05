@@ -16,21 +16,24 @@ type MigrationService struct {
 }
 
 type TaskStatus struct {
-	TaskID          string    `json:"task_id"`
-	Status          string    `json:"status"`
-	CurrentFile     string    `json:"current_file"`
-	Speed           int64     `json:"speed"`
-	ProcessedFiles  int       `json:"processed_files"`
-	TotalFiles      int       `json:"total_files"`
-	TransferredSize int64     `json:"transferred_size"`
-	TotalSize       int64     `json:"total_size"`
-	Progress        float64   `json:"progress"`
-	FailedFiles     int       `json:"failed_files"`
+	TaskID                 string  `json:"task_id"`
+	Status                 string  `json:"status"`
+	CurrentFile            string  `json:"current_file"`
+	CurrentFileSize        int64   `json:"current_file_size"`
+	CurrentFileTransferred int64   `json:"current_file_transferred"`
+	CurrentFileProgress    float64 `json:"current_file_progress"`
+	Speed                  int64   `json:"speed"`
+	ProcessedFiles         int     `json:"processed_files"`
+	TotalFiles             int     `json:"total_files"`
+	TransferredSize        int64   `json:"transferred_size"`
+	TotalSize              int64   `json:"total_size"`
+	Progress               float64 `json:"progress"`
+	FailedFiles            int     `json:"failed_files"`
 	// Verification progress fields
-	VerifyingFiles      int `json:"verifying_files"`       // Number of files verified
-	VerifyFailedFiles   int `json:"verify_failed_files"`   // Number of verification failures
-	StartedAt           time.Time `json:"started_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	VerifyingFiles    int       `json:"verifying_files"`     // Number of files verified
+	VerifyFailedFiles int       `json:"verify_failed_files"` // Number of verification failures
+	StartedAt         time.Time `json:"started_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 
 	// Path information fields
 	SourceFolders []string `json:"source_folders"` // Source folder paths
