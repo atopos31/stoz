@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import TaskStatusBadge from '../components/migration/TaskStatusBadge'
 import TaskProgress from '../components/migration/TaskProgress'
-import { ArrowLeft, X } from 'lucide-react'
+import { ArrowLeft, X, FolderOpen, FolderInput } from 'lucide-react'
 import { useTaskStore } from '../store/useTaskStore'
 import { useToast } from '@/hooks/use-toast'
 import { formatBytes } from '@/lib/format'
@@ -182,6 +182,42 @@ export default function TaskDetailPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Path Information Section */}
+          <div className="border-b pb-4 space-y-3">
+            {/* From Directory */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <FolderOpen className="h-4 w-4" />
+                From (Source Folders)
+              </h4>
+              <div className="bg-gray-50 p-3 rounded max-h-32 overflow-y-auto">
+                {status.source_folders && status.source_folders.length > 0 ? (
+                  status.source_folders.map((folder, index) => (
+                    <p key={index} className="text-sm text-gray-700 py-1 font-mono">
+                      {folder}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">No source folders</p>
+                )}
+              </div>
+            </div>
+
+            {/* To Directory */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <FolderInput className="h-4 w-4" />
+                To (Destination)
+              </h4>
+              <div className="bg-blue-50 p-3 rounded">
+                <p className="text-sm font-mono text-gray-700">
+                  {status.zimaos_host}
+                  <span className="text-blue-600 font-semibold">{status.base_path}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div>
             <h3 className="font-semibold mb-3">Status</h3>
             <TaskProgress status={status} formatBytes={formatBytes} />
