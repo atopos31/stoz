@@ -9,17 +9,16 @@ RUN npm run build
 # Stage 2: Backend build
 FROM golang:1.25-alpine AS backend-build
 WORKDIR /app
-RUN apk add --no-cache gcc musl-dev sqlite-dev
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=frontend-build /app/webui/dist ./webui/dist
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags '-extldflags "-static"' -o stoz .
+RUN CGO_ENABLED=0 GOOS=linux go build -o stoz .
 
 # Stage 3: Final image
 FROM alpine:latest
 WORKDIR /app
-RUN apk add --no-cache ca-certificates sqlite-libs tzdata
+RUN apk add --no-cache ca-certificates tzdata
 COPY --from=backend-build /app/stoz .
 RUN mkdir -p /data
 EXPOSE 8080
