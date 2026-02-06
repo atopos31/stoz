@@ -157,7 +157,7 @@ export default function DeviceConfigDialog({
                     <p className="text-sm text-muted-foreground">{device.device_model}</p>
                     <div className="flex gap-2 mt-2">
                       <Badge variant="secondary">{device.ip}:{device.port}</Badge>
-                      <Badge variant="outline">v{device.os_version}</Badge>
+                      <Badge variant="outline">{device.os_version}</Badge>
                     </div>
                   </div>
                 </div>
