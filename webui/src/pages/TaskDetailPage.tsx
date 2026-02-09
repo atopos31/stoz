@@ -273,7 +273,14 @@ export default function TaskDetailPage() {
             <>
               <Separator />
               <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
-                Migration failed. Please check the error logs.
+                <div className="font-medium">Migration failed.</div>
+                {status.error ? (
+                  <div className="mt-2 text-sm font-mono whitespace-pre-wrap break-all">
+                    {status.error}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-sm">Please check the error logs.</div>
+                )}
               </div>
             </>
           )}

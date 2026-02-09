@@ -22,6 +22,7 @@ export interface MigrationTask {
   id: number;
   task_id: string;
   status: string;
+  error: string;
   source_folders: string;
   zimaos_host: string;
   zimaos_username: string;
@@ -42,6 +43,7 @@ export interface MigrationTask {
 export interface TaskStatus {
   task_id: string;
   status: string;
+  error?: string;
   current_file: string;
   current_file_size: number;
   current_file_transferred: number;

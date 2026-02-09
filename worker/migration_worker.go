@@ -467,6 +467,7 @@ func (p *WorkerPool) uploadFileWithRetry(ctx context.Context, client *service.Zi
 
 func (p *WorkerPool) failTask(task *models.MigrationTask, err error) error {
 	task.Status = models.StatusFailed
+	task.Error = err.Error()
 	now := time.Now()
 	task.CompletedAt = &now
 	if updateErr := p.migrationSvc.UpdateTask(task); updateErr != nil {
@@ -476,6 +477,7 @@ func (p *WorkerPool) failTask(task *models.MigrationTask, err error) error {
 	status := &service.TaskStatus{
 		TaskID:    task.TaskID,
 		Status:    models.StatusFailed,
+		Error:     task.Error,
 		UpdatedAt: time.Now(),
 	}
 	p.migrationSvc.UpdateTaskStatus(task.TaskID, status)

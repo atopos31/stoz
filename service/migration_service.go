@@ -39,6 +39,7 @@ type TaskStatus struct {
 	SourceFolders []string `json:"source_folders"` // Source folder paths
 	ZimaOSHost    string   `json:"zimaos_host"`    // ZimaOS host address
 	BasePath      string   `json:"base_path"`      // Target base path
+	Error         string   `json:"error"`          // Error message when failed
 }
 
 type MigrationOptions struct {
@@ -120,6 +121,7 @@ func (s *MigrationService) GetTaskStatus(taskID string) (*TaskStatus, error) {
 		cachedStatus.SourceFolders = sourceFolders
 		cachedStatus.ZimaOSHost = task.ZimaOSHost
 		cachedStatus.BasePath = task.BasePath
+		cachedStatus.Error = task.Error
 		return cachedStatus, nil
 	}
 
@@ -139,6 +141,7 @@ func (s *MigrationService) GetTaskStatus(taskID string) (*TaskStatus, error) {
 		SourceFolders: sourceFolders,
 		ZimaOSHost:    task.ZimaOSHost,
 		BasePath:      task.BasePath,
+		Error:         task.Error,
 	}, nil
 }
 

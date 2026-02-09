@@ -13,6 +13,7 @@ type MigrationTask struct {
 	ID              uint       `gorm:"primaryKey" json:"id"`
 	TaskID          string     `gorm:"uniqueIndex;not null" json:"task_id"`
 	Status          string     `gorm:"index;not null" json:"status"`
+	Error           string     `gorm:"type:text" json:"error"`
 	SourceFolders   string     `gorm:"type:text;not null" json:"source_folders"`
 	ZimaOSHost      string     `gorm:"not null" json:"zimaos_host"`
 	ZimaOSUsername  string     `gorm:"not null" json:"zimaos_username"`
